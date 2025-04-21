@@ -125,98 +125,98 @@ def show_scheduler_window(parent_root):
         save_sessions(list(all_sessions))
 
 
-      def suggest_sessions():
-        # clear
-        session_list.delete(0, tk.END)
+        def suggest_sessions():
+            # clear
+            session_list.delete(0, tk.END)
 
-        # load data
-        badges      = load_badges()
-        existing    = load_sessions()
-        term_info   = load_term_dates()      # you'll implement this to read data/holiday_data.json
-        holidays    = {
-            d for dates in term_info.values() 
-            for term_dates in dates.values() 
-            for d in term_dates
-        }
-        prefs       = Preferences()
+            # load data
+            badges      = load_badges()
+            existing    = load_sessions()
+            term_info   = load_term_dates()      # you'll implement this to read data/holiday_data.json
+            holidays    = {
+                d for dates in term_info.values() 
+                for term_dates in dates.values() 
+                for d in term_dates
+            }
+            prefs       = Preferences()
 
-        # generate
-        new_sessions = generate_schedule(
-            badges=badges,
-            existing_sessions=existing,
-            term_dates=term_info,
-            holidays=holidays,
-            preferences=prefs
-        )
+            # generate
+            new_sessions = generate_schedule(
+                badges=badges,
+                existing_sessions=existing,
+                term_dates=term_info,
+                holidays=holidays,
+                preferences=prefs
+            )
 
-        # show them
-        for s in new_sessions:
-            line = f"{s.date} {s.time} – {s.title}"
-            session_list.insert(tk.END, line)
+            # show them
+            for s in new_sessions:
+                line = f"{s.date} {s.time} – {s.title}"
+                session_list.insert(tk.END, line)
 
-        # optionally save immediately:
-        all_sess = [Session(*parse_line(l)) for l in session_list.get(0, tk.END)]
-        save_sessions(all_sess)
+            # optionally save immediately:
+            all_sess = [Session(*parse_line(l)) for l in session_list.get(0, tk.END)]
+            save_sessions(all_sess)
 
-    # Edit session
-    def edit_session():
-        try:
-            selected_index = session_list.curselection()[0]
-            selected_text = session_list.get(selected_index)
+        # Edit session
+        def edit_session():
+            try:
+                selected_index = session_list.curselection()[0]
+                selected_text = session_list.get(selected_index)
 
-            # Parse the selected session string
-            date_part, time_title = selected_text.split(" ", 1)
-            time_part, title_part = time_title.split(" - ", 1)
+                # Parse the selected session string
+                date_part, time_title = selected_text.split(" ", 1)
+                time_part, title_part = time_title.split(" - ", 1)
 
-            # Remove original entry
-            session_list.delete(selected_index)
-        except IndexError:
-            messagebox.showwarning("No Selection", "Please select a session to edit.")
+                # Remove original entry
+                session_list.delete(selected_index)
+            except IndexError:
+                messagebox.showwarning("No Selection", "Please select a session to edit.")
 
-    # Delete session
-    def delete_session():
-        try:
-            selected_index = session_list.curselection()[0]
-            session_list.delete(selected_index)
-            # Save updated list
-            all_sessions = session_list.get(0, tk.END)
-            save_sessions(list(all_sessions))
+        # Delete session
+        def delete_session():
+            try:
+                selected_index = session_list.curselection()[0]
+                session_list.delete(selected_index)
+                # Save updated list
+                all_sessions = session_list.get(0, tk.END)
+                save_sessions(list(all_sessions))
 
-        except IndexError:
-            messagebox.showwarning("No Selection", "Please select a session to delete.")
-    suggest_btn = tk.Button(button_frame, text="Suggest Sessions", command=lambda: suggest_sessions())
-    suggest_btn.grid(row=0, column=3, padx=5)
+            except IndexError:
+                messagebox.showwarning("No Selection", "Please select a session to delete.")
+        suggest_btn = tk.Button(button_frame, text="Suggest Sessions", command=lambda: suggest_sessions())
+        suggest_btn.grid(row=0, column=3, padx=5)
 
-    def suggest_sessions():
-        # 1) Clear current list
-        session_list.delete(0, tk.END)
+        def suggest_sessions():
+            # 1) Clear current list
+            session_list.delete(0, tk.END)
 
-        # 2) Load data
-        badges        = load_badges()
-        existing_text = session_list.get(0, tk.END)
-        # parse existing_text into Session(date, badge_name) if needed,
-        # or just pass an empty list to let scheduling start fresh:
-        existing      = []  
+            # 2) Load data
+            badges        = load_badges()
+            existing_text = session_list.get(0, tk.END)
+            # parse existing_text into Session(date, badge_name) if needed,
+            # or just pass an empty list to let scheduling start fresh:
+            existing      = []  
 
-        term_dates    = load_term_dates()           # Dict[str,List[date]]
-        holidays      = {
-            d for dates in term_dates.values()     # flatten all term-date ranges
-            for d in dates
-        }
-        prefs         = Preferences()
+            term_dates    = load_term_dates()           # Dict[str,List[date]]
+            holidays      = {
+                d for dates in term_dates.values()     # flatten all term-date ranges
+                for d in dates
+            }
+            prefs         = Preferences()
 
-        # 3) Generate
-        suggested: List[Session] = generate_schedule(
-            badges=badges,
-            existing_sessions=existing,
-            term_dates=term_dates,
-            holidays=holidays,
-            preferences=prefs
-        )
+            # 3) Generate
+            suggested: List[Session] = generate_schedule(
+                badges=badges,
+                existing_sessions=existing,
+                term_dates=term_dates,
+                holidays=holidays,
+                preferences=prefs
+            )
 
-        # 4) Display
-        for sess in suggested:
-            session_list.insert(tk.END, f"{sess.date} – {sess.badge_name}")
+            # 4) Display
+            for sess in suggested:
+                session_list.insert(tk.END, f"{sess.date} – {sess.badge_name}")
     # Button frame
     button_frame = tk.Frame(window)
     button_frame.pack(pady=10)
