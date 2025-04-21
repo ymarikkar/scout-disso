@@ -15,3 +15,48 @@ Scout‑Disso is an AI‑assisted desktop application for Scout leaders to sched
    ```bash
    git clone https://github.com/ymarikkar/scout-disso.git
    cd scout-disso
+
+   python -m venv venv
+source venv/bin/activate    # On Windows: venv\Scripts\activate
+
+pip install -r requirements.txt
+
+python ScoutScheduler/backend/webscraping.py
+
+python -m ScoutScheduler.main
+``` :contentReference[oaicite:8]{index=8}
+
+ScoutScheduler/             # Application package
+├── backend/                # Data scraping & management modules
+│   ├── webscraping.py      # Badge & holiday fetchers
+│   └── data_management.py  # Load/save JSON sessions & badges
+├── gui/                    # Tkinter GUI modules
+│   ├── scheduler.py        # Session scheduling window
+│   ├── badge_tracker.py    # Badge tracking window
+│   └── chatbot.py          # AI chatbot window
+├── main.py                 # Entry point: brings it all together
+└── requirements.txt        # Exact dependency versions
+``` :contentReference[oaicite:9]{index=9}
+
+## Configuration
+- **API Keys**: Set `WRITER_API_KEY` in your environment for AI suggestions.  
+- **Cloudscraper Settings**: No manual install; Cloudscraper handles Cloudflare bypass automatically&#8203;:contentReference[oaicite:10]{index=10}.  
+- **Holiday Source**: The default is Harrow Council; update `webscraping.py` to target other councils.
+
+## Roadmap
+1. **Finalize scheduling engine**: Automate session suggestions based on badge complexity, available slots, and holidays.  
+2. **Refactor GUI imports**: Eliminate circular imports by using local imports within functions.  
+3. **Enhance AI prompts**: Improve the quality and context of session‑planning suggestions.  
+4. **PyQt migration**: Evaluate migrating from Tkinter to PyQt for richer widgets.  
+5. **User authentication**: Add simple login/role management for multiple leaders. :contentReference[oaicite:11]{index=11}
+
+## Contributing
+1. Fork the repository.  
+2. Create a feature branch.  
+3. Implement and test your changes.  
+4. Open a pull request describing your improvements. :contentReference[oaicite:12]{index=12}
+
+## License
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details&#8203;:contentReference[oaicite:13]{index=13}.
+
+
