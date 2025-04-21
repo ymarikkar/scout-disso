@@ -1,13 +1,23 @@
+import os
+import json
+import requests
+import cloudscraper                  # <- add this
 from bs4 import BeautifulSoup
 
-# Holiday scraper constants
+BADGE_CACHE   = "data/badge_data.json"
 HOLIDAY_CACHE = "data/holiday_data.json"
-BADGE_CACHE = "data/badge_data.json"
-URL = "https://www.scouts.org.uk/cubs/activity-badges/"
 
-scraper = cloudscraper.create_scraper(
-    browser={"browser": "chrome", "platform": "windows", "mobile": False}
-)
+# Create a cloudscraper session to bypass Cloudflare
+scraper = cloudscraper.create_scraper()
+
+def fetch_badge_data():
+    os.makedirs("data", exist_ok=True)
+    url = "https://www.scouts.org.uk/cubs/activity-badges/"
+    print("Downloading with Cloudscraper…")
+    resp = scraper.get(url)
+    # … your existing parsing logic …
+    # write into BADGE_CACHE, return a dict of badges
+
 
 def fetch_school_holidays():
     """
