@@ -2,7 +2,6 @@ import os, json, tkinter as tk
 from tkinter import ttk, messagebox
 from ScoutScheduler.backend.data_management import load_badges, save_badges
 from ScoutScheduler.gui.chatbot       import launch_chatbot
-from ScoutScheduler.gui.badge_tracker import launch_badge_tracker
 
 
 # Paths
