@@ -12,7 +12,7 @@ from ScoutScheduler.backend.data_management import (
 
 from ScoutScheduler.backend.scheduler_logic import generate_schedule
 from ScoutScheduler.backend.data_models import Preferences
-from gui.chatbot import launch_chatbot
+from ScoutScheduler.gui.chatbot import launch_chatbot
 
 def launch_scheduler():
     root = tk.Tk()
