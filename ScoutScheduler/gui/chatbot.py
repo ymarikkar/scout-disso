@@ -1,8 +1,6 @@
 import tkinter as tk
 from ScoutScheduler.backend.ai_integration import get_ai_suggestions
-from ScoutScheduler.gui.badge_tracker import launch_badge_tracker
-from ScoutScheduler.backend.data_management import load_sessions, save_sessions
-from ScoutScheduler.gui.chatbot          import launch_chatbot
+
 
 def launch_chatbot():
     window = tk.Toplevel()
