@@ -8,10 +8,14 @@ cal = Calendar(frame, selectmode="day", date_pattern="dd-mm-yyyy")
 cal.grid(row=0, column=1)
 selected_date = cal.get_date()   # returns "14-04-2025"
 
+# At top, replace old import:
 from gui.badge_tracker import launch_badge_tracker
-btn_badge_tracker = tk.Button(root, text="Badge Tracker", width=20,
-                              command=launch_badge_tracker)
 
+# Then where you define the button:
+btn_badge_tracker = tk.Button(
+    root, text="Badge Tracker", width=20,
+    command=launch_badge_tracker
+)
 
 
 def launch_scheduler():
