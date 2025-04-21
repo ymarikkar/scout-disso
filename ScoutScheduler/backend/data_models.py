@@ -1,34 +1,18 @@
-from dataclasses import dataclass
+# ScoutScheduler/backend/data_models.py
 
-@dataclass
-class Badge:
-    """
-    Represents a Scout badge.
-    - name: badge title
-    - link: URL to badge details
-    - completed: whether the scout has finished it
-    """
-    name: str
-    link: str
+from typing import List, Optional
+from pydantic import BaseModel
+
+class Badge(BaseModel):
+    title: str
+    url: str
     completed: bool = False
 
-@dataclass
-class Session:
-    """
-    Represents a scheduled session.
-    - date: DD-MM-YYYY
-    - time: HH:MM
-    - title: session description
-    """
+class Session(BaseModel):
     date: str
     time: str
     title: str
 
-@dataclass
-class Preferences:
-     """
-    Represents preferences
-    """
-    date: str
-    time: str
-    title: str
+class Preferences(BaseModel):
+    # example field — add whatever you need here
+    default_schedule: List[Session] = []
