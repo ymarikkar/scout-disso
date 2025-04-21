@@ -1,9 +1,7 @@
 import os, json, tkinter as tk
 from tkinter import ttk, messagebox
-import tkinter as tk
 from ScoutScheduler.backend.data_management import load_badges, save_badges
 from ScoutScheduler.gui.chatbot       import launch_chatbot
-from ScoutScheduler.gui.scheduler     import launch_scheduler
 from ScoutScheduler.gui.badge_tracker import launch_badge_tracker
 
 
@@ -28,9 +26,11 @@ def save_progress(progress):
         json.dump(progress, f, indent=2)
 
 def launch_badge_tracker():
+    from ScoutScheduler.gui.scheduler import launch_schedul
     window = tk.Toplevel(parent_root)
     window.title("Badge Tracker")
     win.geometry("600x500")
+    launch_scheduler()
 
     # Filter dropdown
     filter_var = tk.StringVar(value="All")
