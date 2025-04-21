@@ -9,6 +9,12 @@ from backend.data_management import (
     load_sessions,
     save_sessions
 )
+from ScoutScheduler.backend.data_management import (
++     load_badges,
++     load_term_dates,
++     load_sessions,
++     save_sessions
++ )
 from backend.scheduler_logic import generate_schedule
 from backend.data_models import Preferences
 from gui.chatbot import launch_chatbot
