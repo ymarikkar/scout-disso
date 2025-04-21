@@ -6,6 +6,7 @@ import json
 
 import os
 from pathlib import Path
+from .webscraping import HOLIDAY_CACHE
 
 # Path to scraped badge definitions
 BADGE_DEFS = Path(__file__).parent / "data" / "badge_data.json"
