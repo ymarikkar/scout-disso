@@ -80,3 +80,12 @@ def save_badges(status: dict):
     os.makedirs(BADGE_STATUS.parent, exist_ok=True)
     with open(BADGE_STATUS, "w", encoding="utf-8") as f:
         json.dump(status, f, indent=2)
+
+def load_holidays() -> Dict[str, List[str]]:
+    """
+    Load the cached holiday data (term → list of date‑strings)
+    """
+    if HOLIDAY_FILE.exists():
+        with open(HOLIDAY_FILE, encoding="utf‑8") as f:
+            return json.load(f)
+    return {}
