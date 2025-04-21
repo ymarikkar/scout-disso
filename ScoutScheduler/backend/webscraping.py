@@ -16,6 +16,64 @@ from webdriver_manager.chrome import ChromeDriverManager
 BADGE_CACHE = "data/badge_data.json"
 HOLIDAY_CACHE = "data/holiday_data.json"
 
+"""
+Scout Scheduler – badge‑scraper v2 (no Selenium)
+
+Parses the Cubs Activity‑Badges page directly; pulls
+{badge_name: badge_url} into data/badge_data.json
+"""
+
+import os, json, re, requests
+from bs4 import BeautifulSoup
+
+BADGE_CACHE = "data/badge_data.json"
+SOURCE_URL  = "https://www.scouts.org.uk/cubs/activity-badges/"
+
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0 Safari/537.36"
+    )
+}
+
+def fetch_badge_data() -> dict[str,str]:
+    os.makedirs("data", exist_ok=True)
+    print(f"Downloading {SOURCE_URL} …")
+    html = requests.get(SOURCE_URL, headers=HEADERS, timeout=30).text
+    soup = BeautifulSoup(html, "html.parser")
+
+    # rule‑of‑thumb selector: any <a> whose href contains “/activity-badges/”
+    badges: dict[str,str] = {}
+    for a in soup.select("a[href*='/activity-badges/']"):
+        badge_url  = a["href"]
+        badge_name = a.get_text(strip=True)
+
+        # weed out navigation duplicates / empty anchors
+        if not badge_name or len(badge_name) > 60:
+            continue
+        if not re.search(r"/activity-badges/[a-z0-9\-]+/?$", badge_url):
+            continue
+
+        # absolute URL
+        if badge_url.startswith("/"):
+            badge_url = "https://www.scouts.org.uk" + badge_url
+
+        badges[badge_name] = badge_url
+
+    print(f"Found {len(badges)} badges")
+    preview = list(badges.items())[:5]
+    print("Preview:", preview)
+
+    with open(BADGE_CACHE, "w", encoding="utf‑8") as f:
+        json.dump(badges, f, indent=4)
+
+    return badges
+
+
+if __name__ == "__main__":
+    fetch_badge_data()
+
 def fetch_badge_data():
     os.makedirs("data", exist_ok=True)
     url = "https://www.scouts.org.uk/cubs/activity-badges/"
