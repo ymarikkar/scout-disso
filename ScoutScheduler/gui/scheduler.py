@@ -1,231 +1,54 @@
-import tkinter as tk
-from tkinter import messagebox
+# ScoutScheduler/backend/scheduler_logic.py
 
+from datetime import date, timedelta
+from typing import List, Dict
+from ScoutScheduler.backend.data_models import Badge, Session
 
-# Import from the ScoutScheduler package
-from ScoutScheduler.backend.data_management import load_sessions, save_sessions
-from ScoutScheduler.gui.chatbot          import launch_chatbot
+def generate_schedule(
+    badges: List[Badge],
+    existing_sessions: List[Session],
+    term_dates: Dict[str, Dict[str, List[str]]],
+    holidays: set,
+    preferences,  # refine the type when you’ve modelled Preferences fully
+) -> List[Session]:
+    """
+    Simple placeholder scheduler:
+    For each badge not yet completed, pick the next available non-holiday date,
+    and schedule a session at 18:00 with title "Work on {badge}".
+    """
 
+    scheduled: List[Session] = []
+    today = date.today()
 
-# At top, replace old import:
-from ScoutScheduler.gui.badge_tracker import launch_badge_tracker
+    # Build a set of already‑booked dates
+    booked = {
+        date.fromisoformat(s.date) 
+        for s in existing_sessions
+        if len(s.date.split("-")) == 3
+    }
 
+    # Start looking from tomorrow
+    next_day = today + timedelta(days=1)
 
+    for badge in badges:
+        if badge.completed:
+            continue
 
+        # Skip ahead past holidays or booked days
+        while next_day.isoformat() in holidays or next_day in booked:
+            next_day += timedelta(days=1)
 
-def launch_scheduler():
-    root = tk.Tk()
-    root.title("Scout Scheduler")
-    root.geometry("800x600")
-
-    # Heading
-    heading = tk.Label(root, text="Welcome to Scout Scheduler", font=("Helvetica", 18, "bold"))
-    heading.pack(pady=20)
-
-    # Buttons
-    btn_scheduler = tk.Button(root, text="Open Scheduler", width=20, command=lambda: show_scheduler_window(root))
-    btn_scheduler.pack(pady=10)
-
-    btn_badge_tracker = tk.Button(root, text="Badge Tracker", width=20, command=launch_badge_tracker)
-    btn_badge_tracker.pack(pady=10)
-
-    btn_chatbot = tk.Button(root, text="Ask the AI", width=20, command=launch_chatbot)
-    btn_chatbot.pack(pady=10)
-
-    suggest_btn = tk.Button(button_frame, text="Suggest Sessions", command=lambda: suggest_sessions())
-    suggest_btn.grid(row=0, column=3, padx=5)
-
-    btn_exit = tk.Button(root, text="Exit", width=20, command=root.quit)
-    btn_exit.pack(pady=10)
-
-    root.mainloop()
-def show_scheduler_window(parent_root):
-    window = tk.Toplevel(parent_root)
-    window.title("Session Scheduler")
-    window.geometry("600x500")
-
-    # Title
-    heading = tk.Label(window, text="Session Scheduler", font=("Helvetica", 16, "bold"))
-    heading.pack(pady=10)
-
-    # Entry Fields
-    frame = tk.Frame(window)
-    frame.pack(pady=10)
-
-        # Calendar date‑picker (now inside the window, so `frame` is defined)
-    from tkcalendar import Calendar
-    cal = Calendar(frame, selectmode="day", date_pattern="dd-mm-yyyy")
-    cal.grid(row=0, column=2, padx=5)
-
-
-    # add a Date picker
-    cal = Calendar(frame, selectmode="day", date_pattern="dd-mm-yyyy")
-    cal.grid(row=0, column=2, padx=5)
-
-
-    from tkinter import ttk
-    import datetime
-
-    # Date label
-    tk.Label(frame, text="Date (DD-MM-YYYY):").grid(row=0, column=0, sticky="e", padx=5, pady=5)
-
-    # Dropdowns for day, month, year
-    day_var = tk.StringVar()
-    month_var = tk.StringVar()
-    year_var = tk.StringVar()
-
-    days = [f"{d:02d}" for d in range(1, 32)]
-    months = [f"{m:02d}" for m in range(1, 13)]
-    years = [str(y) for y in range(datetime.datetime.now().year, 2031)]
-
-    day_menu = ttk.Combobox(frame, textvariable=day_var, values=days, width=5, state="readonly")
-    month_menu = ttk.Combobox(frame, textvariable=month_var, values=months, width=5, state="readonly")
-    year_menu = ttk.Combobox(frame, textvariable=year_var, values=years, width=7, state="readonly")
-
-    day_menu.grid(row=0, column=1, padx=2, sticky="w")
-    month_menu.grid(row=0, column=1, padx=2)
-    year_menu.grid(row=0, column=1, padx=2, sticky="e")
-
-    # Default selections
-    day_var.set(days[0])
-    month_var.set(months[0])
-    year_var.set(years[0])
-
-    tk.Label(frame, text="Time (HH:MM):").grid(row=1, column=0, sticky="e", padx=5, pady=5)
-    time_entry = tk.Entry(frame)
-    time_entry.grid(row=1, column=1, padx=5)
-
-    tk.Label(frame, text="Session Title:").grid(row=2, column=0, sticky="e", padx=5, pady=5)
-    title_entry = tk.Entry(frame)
-    title_entry.grid(row=2, column=1, padx=5)
-
-    # Session List
-    session_list = tk.Listbox(window, width=70, height=10)
-    session_list.pack(pady=20)
-    # Load existing sessions
-    existing_sessions = load_sessions()
-    for session in existing_sessions:
-        session_list.insert(tk.END, session)
-
-
-    # Add session
-    def add_session():
-        date = f"{day_var.get()}-{month_var.get()}-{year_var.get()}"
-        time = time_entry.get().strip()
-        title = title_entry.get().strip()
-
-        if not date or not time or not title:
-            messagebox.showwarning("Missing Info", "Please fill in all fields.")
-            return
-
-        session_str = f"{date} {time} - {title}"
-        session_list.insert(tk.END, session_str)
-        # Save to file
-        all_sessions = session_list.get(0, tk.END)
-        save_sessions(list(all_sessions))
-
-
-        def suggest_sessions():
-            # clear
-            session_list.delete(0, tk.END)
-
-            # load data
-            badges      = load_badges()
-            existing    = load_sessions()
-            term_info   = load_term_dates()      # you'll implement this to read data/holiday_data.json
-            holidays    = {
-                d for dates in term_info.values() 
-                for term_dates in dates.values() 
-                for d in term_dates
-            }
-            prefs       = Preferences()
-
-            # generate
-            new_sessions = generate_schedule(
-                badges=badges,
-                existing_sessions=existing,
-                term_dates=term_info,
-                holidays=holidays,
-                preferences=prefs
+        # Create a session
+        scheduled.append(
+            Session(
+                date=next_day.strftime("%Y-%m-%d"),
+                time="18:00",
+                title=f"Work on {badge.name}"
             )
+        )
 
-            # show them
-            for s in new_sessions:
-                line = f"{s.date} {s.time} – {s.title}"
-                session_list.insert(tk.END, line)
+        # Mark this day as booked and advance
+        booked.add(next_day)
+        next_day += timedelta(days=1)
 
-            # optionally save immediately:
-            all_sess = [Session(*parse_line(l)) for l in session_list.get(0, tk.END)]
-            save_sessions(all_sess)
-
-        # Edit session
-        def edit_session():
-            try:
-                selected_index = session_list.curselection()[0]
-                selected_text = session_list.get(selected_index)
-
-                # Parse the selected session string
-                date_part, time_title = selected_text.split(" ", 1)
-                time_part, title_part = time_title.split(" - ", 1)
-
-                # Remove original entry
-                session_list.delete(selected_index)
-            except IndexError:
-                messagebox.showwarning("No Selection", "Please select a session to edit.")
-
-        # Delete session
-        def delete_session():
-            try:
-                selected_index = session_list.curselection()[0]
-                session_list.delete(selected_index)
-                # Save updated list
-                all_sessions = session_list.get(0, tk.END)
-                save_sessions(list(all_sessions))
-
-            except IndexError:
-                messagebox.showwarning("No Selection", "Please select a session to delete.")
-        suggest_btn = tk.Button(button_frame, text="Suggest Sessions", command=lambda: suggest_sessions())
-        suggest_btn.grid(row=0, column=3, padx=5)
-
-        def suggest_sessions():
-            # 1) Clear current list
-            session_list.delete(0, tk.END)
-
-            # 2) Load data
-            badges        = load_badges()
-            existing_text = session_list.get(0, tk.END)
-            # parse existing_text into Session(date, badge_name) if needed,
-            # or just pass an empty list to let scheduling start fresh:
-            existing      = []  
-
-            term_dates    = load_term_dates()           # Dict[str,List[date]]
-            holidays      = {
-                d for dates in term_dates.values()     # flatten all term-date ranges
-                for d in dates
-            }
-            prefs         = Preferences()
-
-            # 3) Generate
-            suggested: List[Session] = generate_schedule(
-                badges=badges,
-                existing_sessions=existing,
-                term_dates=term_dates,
-                holidays=holidays,
-                preferences=prefs
-            )
-
-            # 4) Display
-            for sess in suggested:
-                session_list.insert(tk.END, f"{sess.date} – {sess.badge_name}")
-    # Button frame
-    button_frame = tk.Frame(window)
-    button_frame.pack(pady=10)
-
-    add_btn = tk.Button(button_frame, text="Add Session", command=add_session)
-    add_btn.grid(row=0, column=0, padx=5)
-
-    edit_btn = tk.Button(button_frame, text="Edit Selected", command=edit_session)
-    edit_btn.grid(row=0, column=1, padx=5)
-
-    delete_btn = tk.Button(button_frame, text="Delete Selected", command=delete_session)
-    delete_btn.grid(row=0, column=2, padx=5)
+    return scheduled
