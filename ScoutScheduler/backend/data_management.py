@@ -1,6 +1,5 @@
 # ScoutScheduler/backend/data_management.py
 from typing import List, Dict  # ← you need this for your function annotations
-from typing      import List, Dict
 from datetime    import date
 from .data_models import Badge, Session
 import json

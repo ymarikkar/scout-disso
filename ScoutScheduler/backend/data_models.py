@@ -23,3 +23,12 @@ class Session:
     date: str
     time: str
     title: str
+
+@dataclass
+class Preferences:
+     """
+    Represents preferences
+    """
+    date: str
+    time: str
+    title: str
