@@ -150,7 +150,39 @@ def show_scheduler_window(parent_root):
 
         except IndexError:
             messagebox.showwarning("No Selection", "Please select a session to delete.")
+    suggest_btn = tk.Button(button_frame, text="Suggest Sessions", command=lambda: suggest_sessions())
+    suggest_btn.grid(row=0, column=3, padx=5)
 
+    def suggest_sessions():
+        # 1) Clear current list
+        session_list.delete(0, tk.END)
+
+        # 2) Load data
+        badges        = load_badges()
+        existing_text = session_list.get(0, tk.END)
+        # parse existing_text into Session(date, badge_name) if needed,
+        # or just pass an empty list to let scheduling start fresh:
+        existing      = []  
+
+        term_dates    = load_term_dates()           # Dict[str,List[date]]
+        holidays      = {
+            d for dates in term_dates.values()     # flatten all term-date ranges
+            for d in dates
+        }
+        prefs         = Preferences()
+
+        # 3) Generate
+        suggested: List[Session] = generate_schedule(
+            badges=badges,
+            existing_sessions=existing,
+            term_dates=term_dates,
+            holidays=holidays,
+            preferences=prefs
+        )
+
+        # 4) Display
+        for sess in suggested:
+            session_list.insert(tk.END, f"{sess.date} – {sess.badge_name}")
     # Button frame
     button_frame = tk.Frame(window)
     button_frame.pack(pady=10)

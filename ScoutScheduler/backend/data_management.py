@@ -11,6 +11,31 @@ BADGE_STATUS = Path(__file__).parent / "data" / "badge_status.json"
 # (existing session file path)
 SESSION_FILE = Path(__file__).parent / "data" / "sessions.json"
 
+# in ScoutScheduler/backend/data_management.py
+from datetime import datetime
+
+def load_badges() -> List[Badge]:
+    with open("data/badge_data.json", "r") as f:
+        raw = json.load(f)
+    # assume raw is { badge_name: url, … }
+    return [ Badge(name=k, sessions_required=Badge.lookup_sessions(k)) for k in raw ]
+
+def load_term_dates() -> Dict[str, List[date]]:
+    with open("data/holiday_data.json", "r") as f:
+        raw = json.load(f)
+    # raw is { "School year 2024-25": { "Autumn Term 2024": [ … ], … } }
+    term_dates = {}
+    for year, terms in raw.items():
+        term_dates[year] = []
+        for dates in terms.values():
+            for line in dates:
+                # parse “Term time: Monday 2 Sep – Friday 25 Oct”
+                parts = line.split(":")[1].strip().split(" - ")
+                start = datetime.strptime(parts[0], "%A %d %b").replace(year=int(year[:4])).date()
+                end   = datetime.strptime(parts[1], "%A %d %b").replace(year=int(year[:4])).date()
+                term_dates[year].extend([start, end])
+    return term_dates
+
 def load_sessions():
     """
     Load the list of scheduled sessions from disk.

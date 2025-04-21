@@ -4,6 +4,9 @@ from datetime import datetime, date
 from collections import defaultdict
 from typing import List, Set, Dict
 from .data_models import Badge, Session, Preferences
+from ScoutScheduler.backend.scheduler_logic import generate_schedule
+from ScoutScheduler.backend.data_management import load_badges, load_term_dates
+from ScoutScheduler.backend.data_models     import Preferences
 
 
 def generate_schedule(badges, existing_sessions, term_dates, holidays,
