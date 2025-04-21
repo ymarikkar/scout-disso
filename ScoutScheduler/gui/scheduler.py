@@ -93,8 +93,8 @@ def show_scheduler_window(parent_root):
     # Add session
     def add_session():
         date = f"{day_var.get()}-{month_var.get()}-{year_var.get()}"
-        time = time_entry.get()
-        title = title_entry.get()
+        time = time_entry.get().strip()
+        title = title_entry.get().strip()
 
         if not date or not time or not title:
             messagebox.showwarning("Missing Info", "Please fill in all fields.")
@@ -107,10 +107,7 @@ def show_scheduler_window(parent_root):
         save_sessions(list(all_sessions))
 
 
-        # Clear inputs
-        date_entry.delete(0, tk.END)
-        time_entry.delete(0, tk.END)
-        title_entry.delete(0, tk.END)
+     
 
     # Edit session
     def edit_session():
@@ -121,16 +118,6 @@ def show_scheduler_window(parent_root):
             # Parse the selected session string
             date_part, time_title = selected_text.split(" ", 1)
             time_part, title_part = time_title.split(" - ", 1)
-
-            # Populate input fields
-            date_entry.delete(0, tk.END)
-            date_entry.insert(0, date_part)
-
-            time_entry.delete(0, tk.END)
-            time_entry.insert(0, time_part)
-
-            title_entry.delete(0, tk.END)
-            title_entry.insert(0, title_part)
 
             # Remove original entry
             session_list.delete(selected_index)
