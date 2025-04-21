@@ -1,14 +1,11 @@
 import tkinter as tk
 from tkinter import messagebox
+from ScoutScheduler.gui.badge_tracker import launch_badge_tracker
 
 # Import from the ScoutScheduler package
 from ScoutScheduler.backend.data_management import load_sessions, save_sessions
 from ScoutScheduler.gui.chatbot             import launch_chatbot
 from ScoutScheduler.gui.badge_tracker       import launch_badge_tracker
-from tkcalendar import Calendar
-cal = Calendar(frame, selectmode="day", date_pattern="dd-mm-yyyy")
-cal.grid(row=0, column=1)
-selected_date = cal.get_date()   # returns "14-04-2025"
 
 # At top, replace old import:
 from gui.badge_tracker import launch_badge_tracker
@@ -55,6 +52,12 @@ def show_scheduler_window(parent_root):
     # Entry Fields
     frame = tk.Frame(window)
     frame.pack(pady=10)
+
+        # Calendar date‑picker (now inside the window, so `frame` is defined)
+    from tkcalendar import Calendar
+    cal = Calendar(frame, selectmode="day", date_pattern="dd-mm-yyyy")
+    cal.grid(row=0, column=2, padx=5)
+
 
     # add a Date picker
     cal = Calendar(frame, selectmode="day", date_pattern="dd-mm-yyyy")
@@ -155,10 +158,6 @@ def show_scheduler_window(parent_root):
     # Button frame
     button_frame = tk.Frame(window)
     button_frame.pack(pady=10)
-    +    # Calendar date‑picker (move **inside** the window, after frame exists)
-+    from tkcalendar import Calendar
-+    cal = Calendar(frame, selectmode="day", date_pattern="dd-mm-yyyy")
-+    cal.grid(row=0, column=2, padx=5
 
     add_btn = tk.Button(button_frame, text="Add Session", command=add_session)
     add_btn.grid(row=0, column=0, padx=5)
