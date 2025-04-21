@@ -1,0 +1,90 @@
+
+Software Development Plan  
+AI-Assisted Session Scheduler for Scout Groups
+
+1. Purpose of the Application:
+The primary purpose of this application is to simplify and automate scheduling of Scout sessions and badge-tracking activities for scout group leaders. The system leverages AI (GPT-4o) to intelligently recommend sessions based on factors like badge complexity, time remaining in the scout year, holidays, and group preferences.
+
+Goals:
+- Streamline session planning by automating scheduling.
+- Provide organised badge progress tracking.
+- Leverage AI (GPT-4o) for intelligent scheduling.
+- Minimalistic desktop GUI for ease-of-use.
+
+2. System Overview:
+Two mini-applications using Python and Tkinter:
+- Scheduler Module (Calendar-based session management)
+- Badge Tracker Module (Badge progress visualisation)
+
+Integrations:
+- AI Chatbot for scheduling assistance.
+- Google Sheets for cloud storage.
+- Web scraping for badge requirements and school holiday data.
+- Desktop session reminder notifications.
+
+3. Detailed Requirements:
+Functional:
+- Scheduler: Create/edit/delete sessions, AI recommendations.
+- Badge Tracker: Badge progress overview.
+- AI Chatbot: Text-based scheduling assistance.
+- Notifications: Desktop reminders one day before sessions.
+- Login: Simple username/password system.
+
+Non-Functional:
+- Minimalistic GUI (Tkinter).
+- Google Sheets integration.
+- Online-only functionality initially.
+- Basic security through authentication.
+
+4. Comprehensive Module Breakdown:
+Project Structure:
+ScoutScheduler/
+├── main.py               
+├── gui/
+│   ├── scheduler.py       
+│   ├── badge_tracker.py   
+│   ├── chatbot.py         
+│   └── login.py           
+├── backend/
+│   ├── scheduler_logic.py 
+│   ├── badge_logic.py     
+│   ├── ai_integration.py  
+│   ├── webscraping.py     
+│   └── data_management.py 
+├── utils/
+│   └── notifications.py   
+└── data/
+    └── cached_data.json   
+
+GUI Module:
+- Home, Scheduler, Badge Tracker, Chatbot, Login
+
+Backend Module:
+- Scheduler Logic, Badge Logic, AI Integration, Web Scraping, Data Management
+
+Utilities:
+- Desktop Notifications
+
+Data:
+- Cached web data
+
+5. Module Interaction:
+User ↔ GUI ↔ Backend ↔ AI/Web Scraping ↔ Google Sheets ↔ Notifications
+
+6. Technologies:
+- Python, Tkinter, GPT-4o (OpenAI), Google Sheets, Requests/BeautifulSoup, Plyer
+
+7. Implementation Steps:
+Phase 1: GUI setup
+Phase 2: Google Sheets integration
+Phase 3: AI Chatbot integration
+Phase 4: Web scraping for data
+Phase 5: Intelligent scheduling logic
+Phase 6: Desktop notifications
+Phase 7: Login system
+Phase 8: Testing and refinement
+
+8. Scalability:
+Modular, clear separation of concerns, upgradeable to PyQt.
+
+End of Development Plan.
