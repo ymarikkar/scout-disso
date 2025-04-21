@@ -11,11 +11,6 @@ from ScoutScheduler.gui.chatbot          import launch_chatbot
 from ScoutScheduler.gui.badge_tracker import launch_badge_tracker
 
 
-# Then where you define the button:
-btn_badge_tracker = tk.Button(
-    root, text="Badge Tracker", width=20,
-    command=launch_badge_tracker
-)
 
 
 def launch_scheduler():
@@ -31,7 +26,7 @@ def launch_scheduler():
     btn_scheduler = tk.Button(root, text="Open Scheduler", width=20, command=lambda: show_scheduler_window(root))
     btn_scheduler.pack(pady=10)
 
-    btn_badge_tracker = tk.Button(root, text="Badge Tracker", width=20, command=lambda: messagebox.showinfo("Info", "Badge Tracker coming soon"))
+    btn_badge_tracker = tk.Button(root, text="Badge Tracker", width=20, command=launch_badge_tracker)
     btn_badge_tracker.pack(pady=10)
 
     btn_chatbot = tk.Button(root, text="Ask the AI", width=20, command=launch_chatbot)
