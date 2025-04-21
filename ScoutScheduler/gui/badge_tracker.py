@@ -1,6 +1,7 @@
 import os, json, tkinter as tk
 from tkinter import ttk, messagebox
-from ScoutScheduler.gui.badge_tracker import launch_badge_tracker
+import tkinter as tk
+from ScoutScheduler.backend.data_management import load_badges, save_badges
 
 # Paths
 BASE_DIR      = os.path.dirname(__file__)
@@ -23,8 +24,8 @@ def save_progress(progress):
         json.dump(progress, f, indent=2)
 
 def launch_badge_tracker():
-    win = tk.Toplevel()
-    win.title("Badge Tracker")
+    window = tk.Toplevel(parent_root)
+    window.title("Badge Tracker")
     win.geometry("600x500")
 
     # Filter dropdown
