@@ -1,8 +1,10 @@
 import tkinter as tk
 from tkinter import messagebox
-from backend.data_management import load_sessions, save_sessions
-from gui.chatbot import launch_chatbot
 
+# Import from the ScoutScheduler package
+from ScoutScheduler.backend.data_management import load_sessions, save_sessions
+from ScoutScheduler.gui.chatbot             import launch_chatbot
+from ScoutScheduler.gui.badge_tracker       import launch_badge_tracker
 from tkcalendar import Calendar
 cal = Calendar(frame, selectmode="day", date_pattern="dd-mm-yyyy")
 cal.grid(row=0, column=1)
