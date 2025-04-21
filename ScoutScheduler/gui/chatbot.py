@@ -1,5 +1,5 @@
 import tkinter as tk
-from backend.ai_integration import get_ai_suggestions
+from ScoutScheduler.backend.ai_integration import get_ai_suggestions
 
 def launch_chatbot():
     window = tk.Toplevel()
