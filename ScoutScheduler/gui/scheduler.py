@@ -7,7 +7,7 @@ from ScoutScheduler.backend.data_management import (
     load_sessions,
     save_sessions,
     load_badges,
-    load_holidays
+    load_term_dates as load_holidays
 )
 from ScoutScheduler.backend.data_models import Preferences, Session
 from ScoutScheduler.backend.scheduler_logic import generate_schedule
