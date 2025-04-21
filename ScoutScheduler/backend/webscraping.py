@@ -36,9 +36,10 @@ def fetch_badge_data():
     
     try:
         # Wait for up to 15 seconds for at least one element with class "activity-card" to appear.
-        print("Waiting for badge elements to load...")
-        element_present = EC.presence_of_element_located((By.CLASS_NAME, "activity-card"))
-        WebDriverWait(driver, 15).until(element_present)
+        print("Waiting for badge cards (div.badge-card) to load…")
+        cards_present = EC.presence_of_element_located((By.CSS_SELECTOR, "div.badge-card"))
+        WebDriverWait(driver, 20).until(cards_present)
+        print("Badge cards detected.")
         print("Badge elements detected.")
     except Exception as e:
         print("Error waiting for badge elements:", e)
@@ -61,7 +62,6 @@ def fetch_badge_data():
     soup = BeautifulSoup(html, "html.parser")
     badges = {}
     
-    badge_cards = soup.find_all("article", class_="activity-card")
     print("Found", len(badge_cards), "badge card elements in the parsed HTML.")
     # NEW selector
     for card in soup.select("div.badge-card"):
