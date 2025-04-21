@@ -1,16 +1,10 @@
 import pandas as pd
-from collections import defaultdict
-from datetime import timedelta
-
-business_days = pd.bdate_range(
-    start="2025-09-01",
-    end="2026-07-31",
-    freq='B',
-    holidays=school_holidays_list
-)
-
 from dateutil.rrule import rrule, DAILY
-from datetime import datetime
+from datetime import datetime, date
+from collections import defaultdict
+from typing import List, Set, Dict
+from .data_models import Badge, Session, Preferences
+
 
 def generate_schedule(badges, existing_sessions, term_dates, holidays,
                       availability, preferences):
@@ -36,18 +30,11 @@ def generate_schedule(badges, existing_sessions, term_dates, holidays,
     # 5) Wrap into Session objects, return
     return [Session(date=d, title=f"Work on {badge}") for (d,badge) in suggestions]
 
-
-rule = rrule(DAILY, dtstart=datetime(2025,9,1), until=datetime(2026,7,31))
-for holiday in school_holidays_list:
-    rule = rule.exdate(holiday)
-available_dates = list(rule)
-
-def get_available_dates(start: str, end: str, holidays: Set[date]) -> List[date]:
-    # 1) Generate all weekdays
+def get_available_dates(start: date,
+                        end: date,
+                        holidays: Set[date]) -> List[date]:
     all_days = pd.bdate_range(start=start, end=end, freq="B")
-    # 2) Drop any that fall in `holidays`
-    available = [d.date() for d in all_days if d.date() not in holidays]
-    return available
+    return [d.date() for d in all_days if d.date() not in holidays]
 
 
 def assign_sessions(badges, available_dates, max_per_week=None):
