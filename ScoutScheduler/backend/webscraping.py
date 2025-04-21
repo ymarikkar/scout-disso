@@ -34,35 +34,35 @@ def fetch_badge_data():
     # Load the page.
     driver.get(url)
     
+    # ---------- wait ----------
+    print("Waiting for badge cards (div.badge-card) to load…")
     try:
-        # Wait for up to 15 seconds for at least one element with class "activity-card" to appear.
-        print("Waiting for badge cards (div.badge-card) to load…")
         cards_present = EC.presence_of_element_located((By.CSS_SELECTOR, "div.badge-card"))
-        WebDriverWait(driver, 20).until(cards_present)
+        WebDriverWait(driver, 25).until(cards_present)
         print("Badge cards detected.")
-        print("Badge elements detected.")
     except Exception as e:
-        print("Error waiting for badge elements:", e)
-        # Fallback: scroll to the bottom of the page and wait a bit.
-        print("Scrolling down to load lazy content...")
-        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        WebDriverWait(driver, 10).until(lambda d: d.execute_script("return document.readyState") == "complete")
-    
-    # As additional debug, print all article tags and their classes.
-    all_articles = driver.find_elements(By.TAG_NAME, "article")
-    print("Total article tags found on the page:", len(all_articles))
-    for art in all_articles:
-        classes = art.get_attribute("class")
-        print("Article classes:", classes)
-    
-    # Get the final rendered page source.
+        print("Still no badge cards after wait:", e)
+        # keep going – we'll scroll & try again
+    # ---------- scroll and second wait ----------
+    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+    WebDriverWait(driver, 10).until(
+        EC.presence_of_element_located((By.CSS_SELECTOR, "div.badge-card"))
+    )
+
     html = driver.page_source
     driver.quit()
-    
+
     soup = BeautifulSoup(html, "html.parser")
     badges = {}
-    
-    print("Found", len(badge_cards), "badge card elements in the parsed HTML.")
+    for card in soup.select("div.badge-card"):
+        title_tag = card.select_one("h3.badge-card__title")
+        link_tag  = card.select_one("a")
+        if title_tag and link_tag:
+            title = title_tag.get_text(strip=True)
+            badges[title] = "https://www.scouts.org.uk" + link_tag["href"]
+
+    print("Found", len(badges), "badge cards in the parsed HTML.")
+
     # NEW selector
     for card in soup.select("div.badge-card"):
         title_tag = card.select_one("h3.badge-card__title")
