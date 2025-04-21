@@ -2,7 +2,6 @@ import tkinter as tk
 from tkinter import messagebox
 
 # we import backend scheduling logic here
-from ScoutScheduler.backend.scheduler_logic import generate_schedule
 from ScoutScheduler.backend.data_management import load_sessions, save_sessions
 
 def launch_scheduler():
