@@ -1,4 +1,5 @@
 # ScoutScheduler/backend/data_management.py
+from typing import List, Dict  # ← you need this for your function annotations
 
 import json
 import os

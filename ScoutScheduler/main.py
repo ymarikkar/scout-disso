@@ -14,7 +14,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 # ─── 2) Pull in both badge & holiday fetchers ─────────────────────────────────
 try:
-    from ScoutScheduler.backend.webscraping import fetch_badge_data, fetch_school_holidays
+    from ScoutScheduler.backend.webscraping import fetch_badge_data, fetch_school_holidays  # ↵
 except ImportError as e:
     print("❗ Could not import one of the scrapers:", e)
     # define no‑ops so main still runs
