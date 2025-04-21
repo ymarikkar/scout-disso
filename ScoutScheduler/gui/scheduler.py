@@ -4,7 +4,8 @@ from ScoutScheduler.gui.badge_tracker import launch_badge_tracker
 
 # Import from the ScoutScheduler package
 from ScoutScheduler.backend.data_management import load_sessions, save_sessions
-from ScoutScheduler.gui.chatbot             import launch_chatbot
+from ScoutScheduler.gui.chatbot          import launch_chatbot
+
 from ScoutScheduler.gui.badge_tracker       import launch_badge_tracker
 
 # At top, replace old import:

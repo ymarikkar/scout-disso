@@ -1,6 +1,7 @@
 import json
 import os
 
+
 DATA_FILE = "data/cached_data.json"
 
 # backend/data_management.py

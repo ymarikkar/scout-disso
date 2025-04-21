@@ -1,5 +1,6 @@
 import os, json, tkinter as tk
 from tkinter import ttk, messagebox
+from ScoutScheduler.gui.badge_tracker import launch_badge_tracker
 
 # Paths
 BASE_DIR      = os.path.dirname(__file__)
