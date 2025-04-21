@@ -10,6 +10,16 @@ business_days = pd.bdate_range(
 from dateutil.rrule import rrule, DAILY
 from datetime import datetime
 
+def generate_schedule(
+    badges: List[Badge],
+    existing_sessions: List[Session],
+    term_dates: Dict[str, List[date]],
+    holidays: Set[date],
+    availability: Availability,
+    preferences: Preferences
+) -> List[Session]:
+    …
+
 rule = rrule(DAILY, dtstart=datetime(2025,9,1), until=datetime(2026,7,31))
 for holiday in school_holidays_list:
     rule = rule.exdate(holiday)
