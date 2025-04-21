@@ -3,20 +3,15 @@
 import tkinter as tk
 from tkinter import messagebox
 from tkinter import ttk
-from backend.data_management import (
+from ScoutScheduler.backend.data_management import (
     load_badges,
     load_term_dates,      # ← your alias for holidays
     load_sessions,
     save_sessions
 )
-from ScoutScheduler.backend.data_management import (
-+     load_badges,
-+     load_term_dates,
-+     load_sessions,
-+     save_sessions
-+ )
-from backend.scheduler_logic import generate_schedule
-from backend.data_models import Preferences
+
+from ScoutScheduler.backend.scheduler_logic import generate_schedule
+from ScoutScheduler.backend.data_models import Preferences
 from gui.chatbot import launch_chatbot
 
 def launch_scheduler():
