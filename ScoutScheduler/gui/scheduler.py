@@ -32,6 +32,9 @@ def launch_scheduler():
     btn_chatbot = tk.Button(root, text="Ask the AI", width=20, command=launch_chatbot)
     btn_chatbot.pack(pady=10)
 
+    suggest_btn = tk.Button(button_frame, text="Suggest Sessions", command=lambda: suggest_sessions())
+    suggest_btn.grid(row=0, column=3, padx=5)
+
     btn_exit = tk.Button(root, text="Exit", width=20, command=root.quit)
     btn_exit.pack(pady=10)
 
@@ -122,7 +125,38 @@ def show_scheduler_window(parent_root):
         save_sessions(list(all_sessions))
 
 
-     
+      def suggest_sessions():
+        # clear
+        session_list.delete(0, tk.END)
+
+        # load data
+        badges      = load_badges()
+        existing    = load_sessions()
+        term_info   = load_term_dates()      # you'll implement this to read data/holiday_data.json
+        holidays    = {
+            d for dates in term_info.values() 
+            for term_dates in dates.values() 
+            for d in term_dates
+        }
+        prefs       = Preferences()
+
+        # generate
+        new_sessions = generate_schedule(
+            badges=badges,
+            existing_sessions=existing,
+            term_dates=term_info,
+            holidays=holidays,
+            preferences=prefs
+        )
+
+        # show them
+        for s in new_sessions:
+            line = f"{s.date} {s.time} – {s.title}"
+            session_list.insert(tk.END, line)
+
+        # optionally save immediately:
+        all_sess = [Session(*parse_line(l)) for l in session_list.get(0, tk.END)]
+        save_sessions(all_sess)
 
     # Edit session
     def edit_session():
