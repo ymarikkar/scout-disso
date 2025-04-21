@@ -56,6 +56,11 @@ def show_scheduler_window(parent_root):
     frame = tk.Frame(window)
     frame.pack(pady=10)
 
+    # add a Date picker
+    cal = Calendar(frame, selectmode="day", date_pattern="dd-mm-yyyy")
+    cal.grid(row=0, column=2, padx=5)
+
+
     from tkinter import ttk
     import datetime
 
@@ -150,6 +155,10 @@ def show_scheduler_window(parent_root):
     # Button frame
     button_frame = tk.Frame(window)
     button_frame.pack(pady=10)
+    +    # Calendar date‑picker (move **inside** the window, after frame exists)
++    from tkcalendar import Calendar
++    cal = Calendar(frame, selectmode="day", date_pattern="dd-mm-yyyy")
++    cal.grid(row=0, column=2, padx=5
 
     add_btn = tk.Button(button_frame, text="Add Session", command=add_session)
     add_btn.grid(row=0, column=0, padx=5)
