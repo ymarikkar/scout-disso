@@ -13,7 +13,7 @@ BADGE_DEFS = Path(__file__).parent / "data" / "badge_data.json"
 # Path to user’s badge-completion status
 BADGE_STATUS = Path(__file__).parent / "data" / "badge_status.json"
 # (existing session file path)
-SESSION_FILE = Path(__file__).parent / "data" / "sessions.json"
+SESSIONS_FILE = Path(__file__).parent / "data" / "sessions.json"
 
 # in ScoutScheduler/backend/data_management.py
 from datetime import datetime
