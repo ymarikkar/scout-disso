@@ -20,7 +20,14 @@ def fetch_badge_data():
     os.makedirs("data", exist_ok=True)
     url = "https://www.scouts.org.uk/cubs/activity-badges/"
     print("Fetching badge data from:", url)
-    
+    html = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}).text
+    data_str = re.search(r'__NEXT_DATA__"[^>]*>(.*?)</script>', html).group(1)
+    data = json.loads(data_str)
+
+    badges = {}
+    for node in data["props"]["pageProps"]["activityBadges"]:
+        badges[node["title"]] = "https://www.scouts.org.uk" + node["path"]
+    print("Scraped", len(badges), "badges without Selenium")
     # Set up Chrome options for Selenium.
     chrome_options = Options()
     chrome_options.add_argument("--headless")
