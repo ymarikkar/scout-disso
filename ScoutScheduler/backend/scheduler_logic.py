@@ -9,7 +9,7 @@ from ScoutScheduler.backend.data_management import load_badges, load_term_dates
 from ScoutScheduler.backend.data_models     import Preferences
 
 
-ddef generate_schedule(
+def generate_schedule(
     badges: List[Badge],
     existing_sessions: List[Session],
     term_dates: Dict[str, Dict[str, List[str]]],
