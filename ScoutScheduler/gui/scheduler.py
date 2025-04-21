@@ -1,7 +1,6 @@
 import tkinter as tk
 from tkinter import messagebox
 from ScoutScheduler.gui.badge_tracker import launch_badge_tracker
-from ScoutScheduler.gui.chatbot import launch_chatbot
 
 
 # Import from the ScoutScheduler package
