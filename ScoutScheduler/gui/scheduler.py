@@ -11,7 +11,8 @@ from ScoutScheduler.gui.chatbot          import launch_chatbot
 from ScoutScheduler.gui.badge_tracker       import launch_badge_tracker
 
 # At top, replace old import:
-from gui.badge_tracker import launch_badge_tracker
+from ScoutScheduler.gui.badge_tracker import launch_badge_tracker
+
 
 # Then where you define the button:
 btn_badge_tracker = tk.Button(
