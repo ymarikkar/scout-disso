@@ -13,20 +13,23 @@ scraper = cloudscraper.create_scraper()
 def fetch_badge_data():
     os.makedirs("data", exist_ok=True)
     url = "https://www.scouts.org.uk/cubs/activity-badges/"
-    response = scraper.get(url)
-    response.raise_for_status()
+    resp = scraper.get(url)
+    resp.raise_for_status()
 
-    soup = BeautifulSoup(response.text, "html.parser")
+    soup = BeautifulSoup(resp.text, "html.parser")
     badges = {}
 
-    # New selector for the live site
-    for card in soup.find_all("div", class_="sc-cards__item"):
-        title_tag = card.find("h3")
-        link_tag  = card.find("a", href=True)
-        if title_tag and link_tag:
-            title = title_tag.get_text(strip=True)
-            badges[title] = link_tag["href"]
+    # Extract all <a> tags pointing to Cub badge pages
+    for a in soup.find_all("a", href=True):
+        href = a["href"]
+        if href.startswith("/cubs/activity-badges/") and href.rstrip("/").count("/") == 3:
+            title = a.get_text(strip=True)
+            if not title:
+                slug = href.rstrip("/").split("/")[-1]
+                title = slug.replace("-", " ").title()
+            badges[title] = f"https://www.scouts.org.uk{href}"
 
+    # Persist results
     with open(BADGE_CACHE, "w", encoding="utf-8") as f:
         json.dump(badges, f, indent=2)
 
