@@ -2,10 +2,6 @@
 import sys
 from pathlib import Path
 
-# ─── 1) Ensure the project root is on PYTHONPATH ────────────────────────────────
-# If you’re in “.../ScoutScheduler/main.py”, we want the parent of
-# “ScoutScheduler” (i.e. your repo root) on sys.path, so we can do:
-#     import ScoutScheduler.backend.webscraping
 #
 HERE = Path(__file__).resolve()
 PROJECT_ROOT = HERE.parent.parent   # goes from .../ScoutScheduler/main.py → repo root
@@ -15,6 +11,7 @@ if str(PROJECT_ROOT) not in sys.path:
 # ─── 2) Pull in both badge & holiday fetchers ─────────────────────────────────
 try:
     from ScoutScheduler.backend.webscraping import fetch_badge_data, fetch_school_holidays
+    from ScoutScheduler.backend.data_management import load_badges, load_holidays, load_sessions, save_sessions
 except ImportError as e:
     print("❗ Could not import one of the scrapers:", e)
     # define no‑ops so main still runs
