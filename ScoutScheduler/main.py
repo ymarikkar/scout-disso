@@ -2,6 +2,7 @@
 import sys
 from pathlib import Path
 
+
 #
 HERE = Path(__file__).resolve()
 PROJECT_ROOT = HERE.parent.parent   # goes from .../ScoutScheduler/main.py → repo root

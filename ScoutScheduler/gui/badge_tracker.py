@@ -2,6 +2,7 @@ import os, json, tkinter as tk
 from tkinter import ttk, messagebox
 from ScoutScheduler.backend.data_management import load_badges, save_badges
 from ScoutScheduler.gui.chatbot       import launch_chatbot
+from ScoutScheduler.backend.badge_logic import suggest_next_badges
 
 
 # Paths
@@ -80,3 +81,15 @@ def launch_badge_tracker():
     # Toggle button
     btn = tk.Button(win, text="Toggle Completed", command=toggle_status)
     btn.pack(pady=5)
+
+class BadgeTracker(tk.Frame):
+    # … existing code …
+
+    def create_widgets(self):
+        # … existing widgets …
+        rec_btn = tk.Button(self, text="Recommend Next", command=self.show_recommendations)
+        rec_btn.pack(pady=10)
+
+    def show_recommendations(self):
+        recs = suggest_next_badges()
+        tk.messagebox.showinfo("Next Badges", "\n".join(f"• {r}" for r in recs))
