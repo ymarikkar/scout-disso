@@ -1,3 +1,10 @@
+import sys, os
+
+# Ensure the parent folder (ScoutScheduler/) is on Python's module path
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
+if ROOT not in sys.path:
+    sys.path.insert(0, ROOT)
+
 import streamlit as st
 from backend import badge_logic
 
