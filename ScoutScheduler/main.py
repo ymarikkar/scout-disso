@@ -3,47 +3,22 @@ import sys
 from pathlib import Path
 
 
-#
-HERE = Path(__file__).resolve()
-PROJECT_ROOT = HERE.parent.parent   # goes from .../ScoutScheduler/main.py → repo root
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+#!/usr/bin/env python3
+"""Thin launcher that proxies to Streamlit."""
+import os
+import subprocess
+from pathlib import Path
 
-# ─── 2) Pull in both badge & holiday fetchers ─────────────────────────────────
-try:
-    from ScoutScheduler.backend.webscraping import fetch_badge_data, fetch_school_holidays
-    from ScoutScheduler.backend.data_management import load_badges, load_holidays, load_sessions, save_sessions
-except ImportError as e:
-    print("❗ Could not import one of the scrapers:", e)
-    # define no‑ops so main still runs
-    def fetch_badge_data(): return {}
-    def fetch_school_holidays(): return {}
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+APP_FILE = PROJECT_ROOT / "streamlit_app.py"
 
-def initialise_data():
-    print("↻ Refreshing badge data…")
-    try:
-        badges = fetch_badge_data()
-        count = len(badges) if hasattr(badges, "__len__") else 0
-        print(f"   → Saved {count} badges")
-    except Exception as err:
-        print("   ! Failed to fetch badges:", err)
-
-    print("↻ Refreshing holiday data…")
-    try:
-        holidays = fetch_school_holidays()
-        count = len(holidays) if hasattr(holidays, "__len__") else 0
-        print(f"   → Saved {count} holiday entries")
-    except Exception as err:
-        print("   ! Failed to fetch holidays:", err)
-
-def main():
-    print("▶ Starting Scout Scheduler")
-    initialise_data()
-
-    # ─── 3) Launch the GUI ───────────────────────────────────────────────────────
-    from ScoutScheduler.gui.scheduler import launch_scheduler
-    print("▶ Launching GUI…")
-    launch_scheduler()
+def main() -> None:
+    print("🚀  Opening Scout-Disso Streamlit UI …")
+    # Prefer the current Python interpreter’s Streamlit entry-point
+    subprocess.run(
+        ["streamlit", "run", str(APP_FILE)],
+        check=False
+    )
 
 if __name__ == "__main__":
     main()
