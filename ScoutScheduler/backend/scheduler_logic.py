@@ -20,35 +20,46 @@ from cachetools import TTLCache
 from .data_store import save_events
 
 # ──────────────────────────── Writer API config ──────────────────────────── #
-WRITER_URL = "https://api.writer.com/v1/completions"
-WRITER_MODEL = os.getenv("WRITER_MODEL", "palmyra-base")
-WRITER_KEY = os.getenv("WRITER_API_KEY")          # must be set in env / .env
+WRITER_CHAT_URL    = "https://api.writer.com/v1/chat/completions"
+WRITER_CHAT_MODEL  = os.getenv("WRITER_MODEL", "palmyra-chat")  # a chat-capable model
+WRITER_KEY         = os.getenv("WRITER_API_KEY")      # must be set in env / .env
 
 # ──────────────────────────────── cache ──────────────────────────────────── #
 _CACHE: TTLCache = TTLCache(maxsize=100, ttl=600)   # 10-minute cache
 
 
 # ────────────────────────────── low-level call ───────────────────────────── #
-def _call_writer(prompt: str, model: str = WRITER_MODEL) -> str:
+def _call_writer_chat(prompt: str) -> str:
     """
-    Call Writer completion API.
-    Handles BOTH envelope JSON (choices[0].text) and raw-text bodies.
-    Returns the suggestion text (string).
+    Use Writer's Chat Completions endpoint with strict JSON mode.
+    Returns the raw JSON string from the model.
     """
     if not WRITER_KEY:
-        raise RuntimeError("WRITER_API_KEY is not set – define it in your environment")
+        raise RuntimeError("WRITER_API_KEY is not set.")
 
     headers = {
         "Authorization": f"Bearer {WRITER_KEY}",
         "Content-Type": "application/json",
     }
-    payload = {
-        "model": model,
-        # Writer expects 'text' not 'inputs' for /v1/completions
-        "text": prompt,
-        "num_results": 1,
+    body = {
+        "model": WRITER_CHAT_MODEL,
+        "messages": [
+            {"role": "system", "content": "You are an assistant that returns only valid JSON arrays."},
+            {"role": "user",   "content": prompt},
+        ],
+        "n": 1,
+        "response_format": {"type": "json_object"},  # enforce JSON :contentReference[oaicite:1]{index=1}
     }
 
+    resp = requests.post(WRITER_CHAT_URL, headers=headers, json=body, timeout=30)
+    if resp.status_code == 401:
+        detail = resp.json().get("message", "Unauthorized")
+        raise RuntimeError(f"Writer 401 Unauthorized: {detail}")
+    resp.raise_for_status()
+
+    data = resp.json()
+    # data["choices"][0]["message"]["content"] will be your JSON string
+    return data["choices"][0]["message"]["content"]
     try:
         resp = requests.post(WRITER_URL, headers=headers, json=payload, timeout=30)
     except requests.RequestException as exc:
