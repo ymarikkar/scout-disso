@@ -64,20 +64,28 @@ with c2:
 # --------------------------------------------------------------------------- #
 # DATA REFRESH (web scraping) ----------------------------------------------- #
 # --------------------------------------------------------------------------- #
-from backend.webscraper import refresh_bank_holidays, refresh_badge_catalogue
+# ------------- data refresh (scrapers) ------------------------------------ #
+from backend.webscraper import refresh_harrow_holidays, refresh_badge_catalogue
 
 st.divider()
 st.subheader("Refresh data from the web")
 
-c1, c2 = st.columns(2)
+col_hol, col_badge = st.columns(2)
 
-with c1:
-    if st.button("🔄 Refresh bank-holiday list"):
-        count = len(refresh_bank_holidays())
-        st.success(f"Fetched {count} holidays from GOV.UK")
+with col_hol:
+    if st.button("🔄 Refresh Harrow holidays"):
+        try:
+            n = len(refresh_harrow_holidays())
+            st.success(f"Fetched {n} holiday periods")
+        except Exception as e:
+            st.error(f"Failed: {e}")
 
-with c2:
+with col_badge:
     if st.button("🔄 Refresh badge catalogue"):
-        count = len(refresh_badge_catalogue())
-        st.session_state.badges = load_badges()  # update sidebar pages
-        st.success(f"Fetched {len(st.session_state.badges)} badges")
+        try:
+            n = len(refresh_badge_catalogue())
+            st.session_state.badges = load_badges()
+            st.success(f"Fetched {n} badges")
+            st.experimental_rerun()          # page + sidebar refresh
+        except Exception as e:
+            st.error(f"Failed: {e}")

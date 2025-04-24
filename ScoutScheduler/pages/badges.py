@@ -30,3 +30,8 @@ if to_delete and st.button("Delete selected badge"):
     st.session_state.badges.pop(to_delete, None)
     badge_logic._write(st.session_state.badges)
     st.rerun()
+
+from backend.data_store import load_badges, save_badges   # already present
+
+# 🔽  NEW: keep session and file in sync every render
+st.session_state.badges = load_badges()
