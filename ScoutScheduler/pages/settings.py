@@ -55,3 +55,24 @@ with col2:
         save_badges(new_badges)
         st.session_state.badges = new_badges
         st.success("Badges replaced. Refresh other pages to see changes.")
+
+# --------------------------------------------------------------------------- #
+# DATA REFRESH (web scraping) ----------------------------------------------- #
+# --------------------------------------------------------------------------- #
+from backend.webscraper import refresh_bank_holidays, refresh_badge_catalogue
+
+st.divider()
+st.subheader("Refresh data from the web")
+
+c1, c2 = st.columns(2)
+
+with c1:
+    if st.button("🔄 Refresh bank-holiday list"):
+        count = len(refresh_bank_holidays())
+        st.success(f"Fetched {count} holidays from GOV.UK")
+
+with c2:
+    if st.button("🔄 Refresh badge catalogue"):
+        count = len(refresh_badge_catalogue())
+        st.session_state.badges = load_badges()  # update sidebar pages
+        st.success(f"Fetched {len(st.session_state.badges)} badges")

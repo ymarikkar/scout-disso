@@ -1,72 +1,92 @@
-import os
+"""
+Tiny module that fetches fresh holiday dates and badge catalogues.
+
+Scraping/network calls are isolated here so importing other modules
+never triggers I/O.  Nothing in here is executed unless a Streamlit
+button (or a cron job) calls it.
+"""
+from __future__ import annotations
+
+import datetime as _dt
 import json
+import re
+from pathlib import Path
+from typing import List, Dict
+
 import requests
-import cloudscraper
 from bs4 import BeautifulSoup
 
-BADGE_CACHE   = "data/badge_data.json"
-HOLIDAY_CACHE = "data/holiday_data.json"
+from .data_store import save_holidays, save_badges, load_badges
 
-# bypass Cloudflare
-scraper = cloudscraper.create_scraper()
 
-def fetch_badge_data():
-    os.makedirs("data", exist_ok=True)
-    url = "https://www.scouts.org.uk/cubs/activity-badges/"
-    resp = scraper.get(url)
+# --------------------------------------------------------------------------- #
+# 1. UK / GB bank-holiday and school-holiday data
+# --------------------------------------------------------------------------- #
+
+BANK_URL = "https://www.gov.uk/bank-holidays.json"  # official JSON feed :contentReference[oaicite:0]{index=0}
+
+
+def refresh_bank_holidays() -> List[Dict[str, str]]:
+    """Return a list[dict] and persist it via data_store.save_holidays()."""
+    resp = requests.get(BANK_URL, timeout=30)
     resp.raise_for_status()
+    payload = resp.json()
 
-    soup = BeautifulSoup(resp.text, "html.parser")
-    badges = {}
-
-    # Extract all <a> tags pointing to Cub badge pages
-    for a in soup.find_all("a", href=True):
-        href = a["href"]
-        if href.startswith("/cubs/activity-badges/") and href.rstrip("/").count("/") == 3:
-            title = a.get_text(strip=True)
-            if not title:
-                slug = href.rstrip("/").split("/")[-1]
-                title = slug.replace("-", " ").title()
-            badges[title] = f"https://www.scouts.org.uk{href}"
-
-    # Persist results
-    with open(BADGE_CACHE, "w", encoding="utf-8") as f:
-        json.dump(badges, f, indent=2)
-
-    print(f"Saved {len(badges)} badges")
-    return badges
-
-def fetch_school_holidays():
-    os.makedirs("data", exist_ok=True)
-    url = "https://www.harrow.gov.uk/schools-learning/school-term-dates"
-    print("Fetching school holidays…")
-    resp = requests.get(url, headers={"User-Agent":"Mozilla/5.0"})
-    resp.raise_for_status()
-
-    soup = BeautifulSoup(resp.content, "html.parser")
-    holidays = {}
-
-    box = soup.find("div", class_="harrow-info-box--key-info")
-    if box:
-        year = box.find("h3").get_text(strip=True)
-        holidays[year] = {}
-
-        content = box.find("div", class_="harrow-info-box__content")
-        for p in content.find_all("p"):
-            strong = p.find("strong")
-            if not strong:
-                continue
-            term = strong.get_text(strip=True)
-            ul   = p.find_next_sibling("ul")
-            dates = [li.get_text(strip=True) for li in ul.find_all("li")] if ul else []
-            holidays[year][term] = dates
-
-    with open(HOLIDAY_CACHE, "w", encoding="utf-8") as f:
-        json.dump(holidays, f, indent=2)
-    total = sum(len(v) for year in holidays.values() for v in year.values())
-    print(f"Saved {total} holiday entries")
+    # Flatten England & Wales only; tweak if your group is elsewhere
+    events = payload["england-and-wales"]["events"]
+    holidays: List[Dict[str, str]] = [
+        {
+            "name": e["title"],
+            "start": e["date"],
+            "end": e["date"],  # single-day for bank hols
+        }
+        for e in events
+        if _dt.date.fromisoformat(e["date"]).year <= _dt.date.today().year + 1
+    ]
+    save_holidays(holidays)
     return holidays
 
-if __name__ == "__main__":
-    fetch_badge_data()
-    fetch_school_holidays()
+
+# --------------------------------------------------------------------------- #
+# 2. Badge catalogue from scouts.org.uk (no official API, so basic scrape)
+# --------------------------------------------------------------------------- #
+
+CATALOGUE_URL = "https://www.scouts.org.uk/activities-and-badges/badge-finder/"
+
+
+def _parse_badges(html: str) -> Dict[str, dict]:
+    soup = BeautifulSoup(html, "html.parser")
+    cards = soup.select("div.badge-card")  # CSS class in current markup
+    badges: Dict[str, dict] = {}
+    for card in cards:
+        name = card.select_one(".badge-name").get_text(strip=True)
+        desc = card.select_one(".badge-summary").get_text(strip=True)
+        sessions = 1
+        # crude heuristic: “x hours” → sessions = ceil(hours/1.5)
+        m = re.search(r"(\d+)\s*hour", desc, flags=re.I)
+        if m:
+            sessions = round(int(m.group(1)) / 1.5)
+        badges[name] = {
+            "name": name,
+            "sessions": sessions,
+            "status": "Not Started",
+            "completion": 0,
+            "description": desc,
+            "requirements": [],  # no public list in card; left blank
+        }
+    return badges
+
+
+def refresh_badge_catalogue() -> Dict[str, dict]:
+    """Scrape the public badge finder and overwrite local catalogue."""
+    html = requests.get(CATALOGUE_URL, timeout=30).text
+    badges = _parse_badges(html)
+
+    # Merge with local progress if badge already tracked
+    existing = load_badges()
+    for name, record in badges.items():
+        if name in existing:
+            record["status"] = existing[name]["status"]
+            record["completion"] = existing[name]["completion"]
+    save_badges(badges)
+    return badges
