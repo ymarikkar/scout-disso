@@ -38,41 +38,44 @@ SECTION_URLS = {
 }
 def refresh_badge_catalogue() -> Dict[str, Dict[str, Any]]:
     """
-    Fetch the full badge list via the Next.js JSON endpoint.
+    Fetch the *real* Next.js JSON endpoint (complete badge list),
+    with a browser-like User-Agent to bypass Cloudflare.
     """
     BASE = "https://www.scouts.org.uk"
     ROUTE = "/activities-and-badges/badge-finder"
     PAGE_URL = BASE + ROUTE
 
-    # 1) fetch the HTML & grab the buildId
-    r = requests.get(PAGE_URL, timeout=30)
-    r.raise_for_status()
-    html = r.text
+    # 1) grab buildId from the HTML
+    resp = requests.get(PAGE_URL, timeout=30, headers={
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+    })
+    resp.raise_for_status()
+    html = resp.text
 
     m = re.search(r'"buildId":"([^"]+)"', html)
     if not m:
-        raise RuntimeError("Cannot find Next.js buildId in page HTML")
+        raise RuntimeError("Next.js buildId not found in page HTML")
     build_id = m.group(1)
 
-    # 2) construct the JSON URL
-    #    Note: encode the route without leading slash, replacing "/" → "%2F"
-    encoded = ROUTE.lstrip("/").replace("/", "%2F")
-    json_url = f"{BASE}/_next/data/{build_id}/{encoded}.json"
+    # 2) construct the correct JSON path (no %2F – just plain slashes + .json)
+    data_url = f"{BASE}/_next/data/{build_id}{ROUTE}.json"
 
-    # 3) fetch the JSON payload
-    j = requests.get(json_url, timeout=30)
-    j.raise_for_status()
-    data = j.json()
+    # 3) fetch the JSON with the same UA
+    jresp = requests.get(data_url, timeout=30, headers={
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+    })
+    jresp.raise_for_status()
+    data = jresp.json()
 
-    # 4) locate the badge list in the JSON
+    # 4) extract the badge array
     props = data.get("pageProps") or data.get("props", {}).get("pageProps", {})
-    all_badges = props.get("allBadges") or props.get("badges") or []
-    if not isinstance(all_badges, list):
-        raise RuntimeError("Unexpected JSON format for badges")
+    badge_items = props.get("allBadges") or props.get("badges") or []
+    if not isinstance(badge_items, list):
+        raise RuntimeError("Unexpected JSON format – no badge list found")
 
-    # 5) transform into our local shape
+    # 5) transform & merge existing progress
     out: Dict[str, Dict[str, Any]] = {}
-    for item in all_badges:
+    for item in badge_items:
         name = item.get("title") or item.get("name")
         if not name:
             continue
@@ -85,7 +88,6 @@ def refresh_badge_catalogue() -> Dict[str, Dict[str, Any]]:
             "requirements": item.get("requirements", []),
         }
 
-    # 6) merge in existing progress
     existing = load_badges()
     for nm, rec in existing.items():
         if nm in out:
@@ -94,7 +96,6 @@ def refresh_badge_catalogue() -> Dict[str, Dict[str, Any]]:
 
     save_badges(out)
     return out
-
 # --------------------------------------------------------------------------- #
 # Holiday scraper — Harrow Council web page
 # --------------------------------------------------------------------------- #
