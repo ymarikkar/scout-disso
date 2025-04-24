@@ -14,6 +14,46 @@ from bs4 import BeautifulSoup
 
 from .data_store import save_badges, save_holidays, load_badges
 
+import json
+import requests
+from bs4 import BeautifulSoup
+from typing import Dict
+
+FINDER_URL = "https://www.scouts.org.uk/activities-and-badges/badge-finder/"
+
+def refresh_badge_catalogue() -> Dict[str, dict]:
+    html = requests.get(FINDER_URL, timeout=30).text
+    soup = BeautifulSoup(html, "html.parser")
+    # Next.js embeds all page data in this <script> tag
+    script = soup.find("script", id="__NEXT_DATA__")
+    data = json.loads(script.string)
+
+    # The exact path may vary; inspect data["props"]["pageProps"] in your browser
+    badge_items = data["props"]["pageProps"]["allBadges"]  # or similar key
+
+    badges = {}
+    for itm in badge_items:
+        name = itm["title"]
+        badges[name] = {
+            "name": name,
+            "sessions": itm.get("sessions", 1),
+            "status": "Not Started",
+            "completion": 0,
+            "description": itm.get("summary", ""),
+            "requirements": itm.get("requirements", []),
+        }
+
+    # Then merge and save exactly as above…
+    from .data_store import save_badges, load_badges
+    existing = load_badges()
+    for nm, rec in existing.items():
+        if nm in badges:
+            badges[nm]["status"]     = rec["status"]
+            badges[nm]["completion"] = rec["completion"]
+    save_badges(badges)
+    return badges
+
+
 # --------------------------------------------------------------------------- #
 # Holiday scraper — Harrow Council web page
 # --------------------------------------------------------------------------- #
