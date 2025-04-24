@@ -36,56 +36,64 @@ SECTION_URLS = {
     "Scouts":    "https://www.scouts.org.uk/scouts/activity-badges/",
     "Explorers": "https://www.scouts.org.uk/explorers/activity-badges/",
 }
-
 def refresh_badge_catalogue() -> Dict[str, Dict[str, Any]]:
     """
-    Scrape the static Activity-Badges pages to collect every badge name
-    and its description. Merges in any existing progress data.
+    Fetch the full badge list via the Next.js JSON endpoint.
     """
-    all_badges: Dict[str, Dict[str, Any]] = {}
+    BASE = "https://www.scouts.org.uk"
+    ROUTE = "/activities-and-badges/badge-finder"
+    PAGE_URL = BASE + ROUTE
 
-    for section, url in SECTION_URLS.items():
-        resp = requests.get(url, timeout=30)
-        resp.raise_for_status()
-        soup = BeautifulSoup(resp.text, "html.parser")
+    # 1) fetch the HTML & grab the buildId
+    r = requests.get(PAGE_URL, timeout=30)
+    r.raise_for_status()
+    html = r.text
 
-        # On these pages, badge names are in <h2> and a <p> follows with desc
-        for h2 in soup.find_all("h2"):
-            name = h2.get_text(strip=True)
-            if not name or name in all_badges:
-                continue
+    m = re.search(r'"buildId":"([^"]+)"', html)
+    if not m:
+        raise RuntimeError("Cannot find Next.js buildId in page HTML")
+    build_id = m.group(1)
 
-            # Find the first <p> (or <li>) sibling for description
-            desc = ""
-            sib = h2.find_next_sibling()
-            while sib:
-                if sib.name in ("p", "li"):
-                    desc = sib.get_text(strip=True)
-                    break
-                sib = sib.find_next_sibling()
+    # 2) construct the JSON URL
+    #    Note: encode the route without leading slash, replacing "/" → "%2F"
+    encoded = ROUTE.lstrip("/").replace("/", "%2F")
+    json_url = f"{BASE}/_next/data/{build_id}/{encoded}.json"
 
-            all_badges[name] = {
-                "name":         name,
-                "sessions":     1,
-                "status":       "Not Started",
-                "completion":   0,
-                "description":  desc,
-                "requirements": [],
-                "section":      section,
-            }
+    # 3) fetch the JSON payload
+    j = requests.get(json_url, timeout=30)
+    j.raise_for_status()
+    data = j.json()
 
-    # Merge existing progress
+    # 4) locate the badge list in the JSON
+    props = data.get("pageProps") or data.get("props", {}).get("pageProps", {})
+    all_badges = props.get("allBadges") or props.get("badges") or []
+    if not isinstance(all_badges, list):
+        raise RuntimeError("Unexpected JSON format for badges")
+
+    # 5) transform into our local shape
+    out: Dict[str, Dict[str, Any]] = {}
+    for item in all_badges:
+        name = item.get("title") or item.get("name")
+        if not name:
+            continue
+        out[name] = {
+            "name":        name,
+            "sessions":    item.get("hours", 1) or 1,
+            "status":      "Not Started",
+            "completion":  0,
+            "description": item.get("summary") or item.get("description", ""),
+            "requirements": item.get("requirements", []),
+        }
+
+    # 6) merge in existing progress
     existing = load_badges()
     for nm, rec in existing.items():
-        if nm in all_badges:
-            all_badges[nm]["status"]     = rec.get("status", all_badges[nm]["status"])
-            all_badges[nm]["completion"] = rec.get("completion", all_badges[nm]["completion"])
+        if nm in out:
+            out[nm]["status"]     = rec.get("status", out[nm]["status"])
+            out[nm]["completion"] = rec.get("completion", out[nm]["completion"])
 
-    # Persist and return
-    save_badges(all_badges)
-    return all_badges
-
-
+    save_badges(out)
+    return out
 
 # --------------------------------------------------------------------------- #
 # Holiday scraper — Harrow Council web page
