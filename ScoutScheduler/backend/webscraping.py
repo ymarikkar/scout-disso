@@ -1,54 +1,76 @@
 """
-Tiny module that fetches fresh holiday dates and badge catalogues.
-
-Scraping/network calls are isolated here so importing other modules
-never triggers I/O.  Nothing in here is executed unless a Streamlit
-button (or a cron job) calls it.
+Unified scraper for badges and holidays.
+Uses data_store helpers so Streamlit pages see the same JSON files.
 """
 from __future__ import annotations
 
-import datetime as _dt
+import datetime as dt
 import json
 import re
-from pathlib import Path
-from typing import List, Dict
+from typing import Dict, List
 
 import requests
 from bs4 import BeautifulSoup
 
-from .data_store import save_holidays, save_badges, load_badges
-
+from .data_store import save_badges, save_holidays, load_badges
 
 # --------------------------------------------------------------------------- #
-# 1. UK / GB bank-holiday and school-holiday data
+# Holiday scraper — Harrow Council web page
 # --------------------------------------------------------------------------- #
 
-BANK_URL = "https://www.gov.uk/bank-holidays.json"  # official JSON feed :contentReference[oaicite:0]{index=0}
+HARROW_URL = (
+    "https://www.harrow.gov.uk/schools-learning/school-term-dates"
+)  # update if your council changes path
 
 
-def refresh_bank_holidays() -> List[Dict[str, str]]:
-    """Return a list[dict] and persist it via data_store.save_holidays()."""
-    resp = requests.get(BANK_URL, timeout=30)
-    resp.raise_for_status()
-    payload = resp.json()
+def refresh_harrow_holidays() -> List[dict]:
+    """Scrape term dates from Harrow Council; return list[dict] & persist."""
+    html = requests.get(HARROW_URL, timeout=30).text
+    soup = BeautifulSoup(html, "html.parser")
+    box = soup.find("div", class_="harrow-info-box--key-info")
 
-    # Flatten England & Wales only; tweak if your group is elsewhere
-    events = payload["england-and-wales"]["events"]
-    holidays: List[Dict[str, str]] = [
-        {
-            "name": e["title"],
-            "start": e["date"],
-            "end": e["date"],  # single-day for bank hols
-        }
-        for e in events
-        if _dt.date.fromisoformat(e["date"]).year <= _dt.date.today().year + 1
-    ]
+    if not box:
+        raise RuntimeError("Term-date box not found – page structure changed")
+
+    holidays: List[dict] = []
+    year_header = box.find("h3").get_text(strip=True)
+    content = box.find("div", class_="harrow-info-box__content")
+
+    for p in content.find_all("p"):
+        term = p.find("strong")
+        if not term:
+            continue
+        term_name = term.get_text(strip=True)
+        ul = p.find_next_sibling("ul")
+        if not ul:
+            continue
+        for li in ul.find_all("li"):
+            span = li.get_text(strip=True)
+            # Expect “Monday 15 April to Friday 24 May 2025”
+            m = re.match(
+                r".*?(\d{1,2}\s+\w+\s+\d{4}).*?(\d{1,2}\s+\w+\s+\d{4})", span
+            )
+            if not m:
+                continue
+            start, end = m.groups()
+            holidays.append(
+                {
+                    "name": f"{term_name} ({year_header})",
+                    "start": dt.datetime.strptime(start, "%d %B %Y")
+                    .date()
+                    .isoformat(),
+                    "end": dt.datetime.strptime(end, "%d %B %Y")
+                    .date()
+                    .isoformat(),
+                }
+            )
+
     save_holidays(holidays)
     return holidays
 
 
 # --------------------------------------------------------------------------- #
-# 2. Badge catalogue from scouts.org.uk (no official API, so basic scrape)
+# Badge catalogue scraper  (Scouts UK site)
 # --------------------------------------------------------------------------- #
 
 CATALOGUE_URL = "https://www.scouts.org.uk/activities-and-badges/badge-finder/"
@@ -56,37 +78,34 @@ CATALOGUE_URL = "https://www.scouts.org.uk/activities-and-badges/badge-finder/"
 
 def _parse_badges(html: str) -> Dict[str, dict]:
     soup = BeautifulSoup(html, "html.parser")
-    cards = soup.select("div.badge-card")  # CSS class in current markup
-    badges: Dict[str, dict] = {}
+    cards = soup.select("div.badge-card")
+    data: Dict[str, dict] = {}
     for card in cards:
         name = card.select_one(".badge-name").get_text(strip=True)
         desc = card.select_one(".badge-summary").get_text(strip=True)
-        sessions = 1
-        # crude heuristic: “x hours” → sessions = ceil(hours/1.5)
-        m = re.search(r"(\d+)\s*hour", desc, flags=re.I)
-        if m:
-            sessions = round(int(m.group(1)) / 1.5)
-        badges[name] = {
+        # Very rough heuristic for sessions:
+        sessions = 1 + desc.lower().count("skills")
+        data[name] = {
             "name": name,
             "sessions": sessions,
             "status": "Not Started",
             "completion": 0,
             "description": desc,
-            "requirements": [],  # no public list in card; left blank
+            "requirements": [],
         }
-    return badges
+    return data
 
 
 def refresh_badge_catalogue() -> Dict[str, dict]:
-    """Scrape the public badge finder and overwrite local catalogue."""
     html = requests.get(CATALOGUE_URL, timeout=30).text
-    badges = _parse_badges(html)
+    new_badges = _parse_badges(html)
 
-    # Merge with local progress if badge already tracked
+    # merge progress from existing local file
     existing = load_badges()
-    for name, record in badges.items():
-        if name in existing:
-            record["status"] = existing[name]["status"]
-            record["completion"] = existing[name]["completion"]
-    save_badges(badges)
-    return badges
+    for name in existing:
+        if name in new_badges:
+            new_badges[name]["status"] = existing[name].get("status", "Not Started")
+            new_badges[name]["completion"] = existing[name].get("completion", 0)
+
+    save_badges(new_badges)
+    return new_badges
