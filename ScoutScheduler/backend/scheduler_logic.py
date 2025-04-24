@@ -9,7 +9,6 @@ from ScoutScheduler.backend.data_management import (
     save_badges,
     load_holidays
 )
-from ScoutScheduler.backend.scheduler_logic import generate_schedule
 from ScoutScheduler.backend.data_models import Preferences, Badge
 from ScoutScheduler.backend.badge_logic import get_completed_badges  # NEW: to filter completed badges
 from ScoutScheduler.gui.chatbot import launch_chatbot
