@@ -20,69 +20,71 @@ from bs4 import BeautifulSoup
 from typing import Dict
 
 FINDER_URL = "https://www.scouts.org.uk/activities-and-badges/badge-finder/"
+# ScoutScheduler/backend/webscraping.py
 
-def refresh_badge_catalogue() -> Dict[str, dict]:
+import requests
+from bs4 import BeautifulSoup
+from datetime import datetime
+from typing import Dict, Any
+
+from .data_store import load_badges, save_badges
+
+# STATIC PAGES for all sections
+SECTION_URLS = {
+    "Beavers":   "https://www.scouts.org.uk/beavers/activity-badges/",
+    "Cubs":      "https://www.scouts.org.uk/cubs/activity-badges/",
+    "Scouts":    "https://www.scouts.org.uk/scouts/activity-badges/",
+    "Explorers": "https://www.scouts.org.uk/explorers/activity-badges/",
+}
+
+def refresh_badge_catalogue() -> Dict[str, Dict[str, Any]]:
     """
-    Scrape the __NEXT_DATA__ JSON from the badge-finder page to load every badge.
+    Scrape the static Activity-Badges pages to collect every badge name
+    and its description. Merges in any existing progress data.
     """
-    URL = "https://www.scouts.org.uk/activities-and-badges/badge-finder/"
+    all_badges: Dict[str, Dict[str, Any]] = {}
 
-    # 1) fetch the page
-    r = requests.get(URL, timeout=30)
-    r.raise_for_status()
-    html = r.text
+    for section, url in SECTION_URLS.items():
+        resp = requests.get(url, timeout=30)
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, "html.parser")
 
-    # 2) parse the Next.js data blob
-    soup = BeautifulSoup(html, "html.parser")
-    script = soup.find("script", id="__NEXT_DATA__")
-    if not script or not script.string:
-        raise RuntimeError("Could not find __NEXT_DATA__ on badge-finder page")
+        # On these pages, badge names are in <h2> and a <p> follows with desc
+        for h2 in soup.find_all("h2"):
+            name = h2.get_text(strip=True)
+            if not name or name in all_badges:
+                continue
 
-    data = json.loads(script.string)
+            # Find the first <p> (or <li>) sibling for description
+            desc = ""
+            sib = h2.find_next_sibling()
+            while sib:
+                if sib.name in ("p", "li"):
+                    desc = sib.get_text(strip=True)
+                    break
+                sib = sib.find_next_sibling()
 
-    # 3) locate the badge list in the JSON. The exact path may differ; inspect in your browser.
-    #    In my tests it's under props.pageProps.allBadges or props.pageProps.badges
-    page_props = data.get("props", {}) \
-                     .get("pageProps", {})
+            all_badges[name] = {
+                "name":         name,
+                "sessions":     1,
+                "status":       "Not Started",
+                "completion":   0,
+                "description":  desc,
+                "requirements": [],
+                "section":      section,
+            }
 
-    badge_items = (
-        page_props.get("allBadges")
-        or page_props.get("badges")
-        or []
-    )
-
-    if not badge_items:
-        raise RuntimeError("Couldn’t locate badge list in __NEXT_DATA__")
-
-    badges: Dict[str, dict] = {}
-    for item in badge_items:
-        # Common fields might vary—adjust key names if needed:
-        name = item.get("title") or item.get("name")
-        if not name:
-            continue
-
-        description = item.get("summary") or item.get("description") or ""
-        sessions = item.get("hours") or item.get("sessions") or 1
-
-        badges[name] = {
-            "name": name,
-            "sessions": sessions,
-            "status": "Not Started",
-            "completion": 0,
-            "description": description,
-            "requirements": item.get("requirements", []),
-        }
-
-    # 4) Merge with any existing local progress, then persist
-    from .data_store import load_badges, save_badges
+    # Merge existing progress
     existing = load_badges()
     for nm, rec in existing.items():
-        if nm in badges:
-            badges[nm]["status"]     = rec.get("status", badges[nm]["status"])
-            badges[nm]["completion"] = rec.get("completion", badges[nm]["completion"])
+        if nm in all_badges:
+            all_badges[nm]["status"]     = rec.get("status", all_badges[nm]["status"])
+            all_badges[nm]["completion"] = rec.get("completion", all_badges[nm]["completion"])
 
-    save_badges(badges)
-    return badges
+    # Persist and return
+    save_badges(all_badges)
+    return all_badges
+
 
 
 # --------------------------------------------------------------------------- #
