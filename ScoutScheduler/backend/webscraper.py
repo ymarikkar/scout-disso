@@ -30,25 +30,21 @@ def parse_date(s: str) -> dt.date:
             return dt.datetime.strptime(s, fmt).date()
         except ValueError:
             continue
-    # fallback: attach current year
+    # fallback: append current year
     return dt.datetime.strptime(f"{s} {dt.date.today().year}", "%d %B %Y").date()
 
 def refresh_harrow_holidays() -> list[dict]:
-    """
-    Render the Harrow term-dates page, then:
-      1) Try to parse a UL of LI items under 'term date'
-      2) If none found, parse the first TABLE of dates under that heading
-    """
+    """Fetch and parse Harrow term dates from the live site."""
     session = HTMLSession()
     try:
         r = session.get(HARROW_URL, timeout=30)
-        r.html.render(timeout=20)
+        r.html.render(timeout=20)           # runs the page’s JS 
     except Exception:
         return load_holidays()
 
     soup = BeautifulSoup(r.html.html, "html.parser")
 
-    # Locate any heading h1–h4 containing 'term date'
+    # 1) find the heading containing “term date”
     heading = soup.find(
         lambda t: t.name in ("h1","h2","h3","h4")
                   and "term date" in t.get_text(strip=True).lower()
@@ -56,38 +52,38 @@ def refresh_harrow_holidays() -> list[dict]:
     if not heading:
         return load_holidays()
 
-    # 1) UL parser
-    ul = heading.find_next("ul")
     scraped = []
+
+    # 2) first try a UL of LI items
+    ul = heading.find_next("ul")
     if ul:
         for li in ul.find_all("li"):
             text = li.get_text(" ", strip=True)
-            m = re.search(r"(\d{1,2}\s+\w+\s*(?:\d{4})?)\s+to\s+(\d{1,2}\s+\w+\s*(?:\d{4})?)", text)
+            m = re.search(r"(\d{1,2}\s+\w+\s*\d{0,4})\s+to\s+(\d{1,2}\s+\w+\s*\d{0,4})", text)
             if not m:
                 continue
-            st, en = (parse_date(m.group(1)), parse_date(m.group(2)))
+            st, en = parse_date(m.group(1)), parse_date(m.group(2))
             scraped.append({"name": text, "start": st.isoformat(), "end": en.isoformat()})
 
-    # 2) TABLE parser (fallback)
+    # 3) fallback: parse the first TABLE under that heading
     if not scraped:
         table = heading.find_next("table")
         if table:
-            rows = table.find_all("tr")
-            for tr in rows[1:]:  # skip header row
-                cols = [td.get_text(" ", strip=True) for td in tr.find_all(["td","th"])]
+            rows = table.find_all("tr")[1:]  # skip header
+            for tr in rows:
+                cols = [td.get_text(" ", strip=True) for td in tr.find_all("td")]
                 if len(cols) < 3:
                     continue
                 term, start_s, end_s = cols[0], cols[1], cols[2]
-                st_dt, en_dt = parse_date(start_s), parse_date(end_s)
-                scraped.append({"name": term, "start": st_dt.isoformat(), "end": en_dt.isoformat()})
+                st, en = parse_date(start_s), parse_date(end_s)
+                scraped.append({"name": term, "start": st.isoformat(), "end": en.isoformat()})
 
-    # Persist if we got data, else keep old
+    # 4) save only when we actually found something
     if scraped:
         save_holidays(scraped)
         return scraped
     else:
-        return load_holidays()
-# --------------------------------------------------------------------------- #
+        return load_holidays()----------------------------------------- #
 # 2) Badge catalogue scraper – bypass Cloudflare & hit static pages
 # --------------------------------------------------------------------------- #
 SECTION_URLS = {
