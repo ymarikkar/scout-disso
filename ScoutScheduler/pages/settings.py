@@ -1,33 +1,26 @@
 # pages/settings.py
 """
-Settings & Data page – export / import JSON and refresh data from the web.
+Settings & Data – export/import JSON and refresh web data.
 """
-import sys, os
-
-# Ensure the parent folder (ScoutScheduler/) is on Python's module path
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
-if ROOT not in sys.path:
-    sys.path.insert(0, ROOT)
-
 import json
 import streamlit as st
+
 from backend.data_store import (
     load_events, save_events,
-    load_badges, save_badges,
+    load_badges,  save_badges,
 )
-from backend.webscraper import (
+from backend.webscraper import (                   # note the trailing "ing"
     refresh_harrow_holidays,
     refresh_badge_catalogue,
 )
 
 st.title("⚙️ Settings & Data")
 
-# -------------------------------------------------------------------- #
-# Export / import sections
-# -------------------------------------------------------------------- #
+# ---------------------------------------------------------------- #
+# Export / import
+# ---------------------------------------------------------------- #
 left, right = st.columns(2)
 
-# ---------- Events --------------------------------------------------- #
 with left:
     st.header("Export / import events")
 
@@ -40,12 +33,11 @@ with left:
 
     uploaded = st.file_uploader("⬆️ Upload events JSON", type="json")
     if uploaded and st.button("Replace events"):
-        events = json.load(uploaded)
-        save_events(events)
-        st.session_state.events = events
-        st.success("Events replaced. Refresh Calendar page.")
+        ev = json.load(uploaded)
+        save_events(ev)
+        st.session_state.events = ev
+        st.success("Events replaced! Go to the Calendar page to verify.")
 
-# ---------- Badges --------------------------------------------------- #
 with right:
     st.header("Export / import badges")
 
@@ -58,33 +50,33 @@ with right:
 
     uploaded_b = st.file_uploader("⬆️ Upload badges JSON", type="json", key="b_up")
     if uploaded_b and st.button("Replace badges"):
-        badges = json.load(uploaded_b)
-        save_badges(badges)
-        st.session_state.badges = badges
-        st.success("Badges replaced. Refresh Badges page.")
+        bd = json.load(uploaded_b)
+        save_badges(bd)
+        st.session_state.badges = bd
+        st.success("Badges replaced! Go to the Badges page to verify.")
 
-# -------------------------------------------------------------------- #
+# ---------------------------------------------------------------- #
 # Refresh from the web
-# -------------------------------------------------------------------- #
+# ---------------------------------------------------------------- #
 st.divider()
 st.subheader("Refresh data from the web")
 
-col_holidays, col_badges = st.columns(2)
+col_hol, col_badge = st.columns(2)
 
-with col_holidays:
+with col_hol:
     if st.button("🔄 Refresh Harrow holidays"):
         try:
-            n = len(refresh_harrow_holidays())
-            st.success(f"Fetched {n} holiday periods")
+            count = len(refresh_harrow_holidays())
+            st.success(f"Fetched {count} holiday periods.")
         except Exception as e:
-            st.error(f"Failed: {e}")
+            st.error(f"Failed to fetch holidays: {e}")
 
-with col_badges:
+with col_badge:
     if st.button("🔄 Refresh badge catalogue"):
         try:
-            n = len(refresh_badge_catalogue())
+            count = len(refresh_badge_catalogue())
+            # reload in-memory state so sidebar/pages pick it up next render
             st.session_state.badges = load_badges()
-            st.success(f"Fetched {n} badges")
-            st.experimental_rerun()           # reload pages & sidebar
+            st.success(f"Fetched {count} badges. Go to the Badges page to see them.")
         except Exception as e:
-            st.error(f"Failed: {e}")
+            st.error(f"Failed to fetch badges: {e}")

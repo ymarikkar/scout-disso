@@ -109,3 +109,41 @@ def refresh_badge_catalogue() -> Dict[str, dict]:
 
     save_badges(new_badges)
     return new_badges
+
+# ScoutScheduler/backend/webscraping.py
+
+def _parse_badges(html: str) -> Dict[str, dict]:
+    """
+    Fallback parser: grab every H2 as a badge name, and the first
+    <p> (or <li>) that follows it as the description.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+
+    # The badge names on the finder page use <h2> tags
+    headers = soup.find_all("h2")
+    badges: Dict[str, dict] = {}
+
+    for header in headers:
+        name = header.get_text(strip=True)
+        if not name:
+            continue
+
+        # Look for the next paragraph or list item for description
+        desc = ""
+        sib = header.find_next_sibling()
+        while sib:
+            if sib.name in ("p", "li"):
+                desc = sib.get_text(strip=True)
+                break
+            sib = sib.find_next_sibling()
+
+        badges[name] = {
+            "name": name,
+            "sessions": 1,
+            "status": "Not Started",
+            "completion": 0,
+            "description": desc,
+            "requirements": [],
+        }
+
+    return badges
