@@ -55,6 +55,11 @@ with col2:
         save_badges(new_badges)
         st.session_state.badges = new_badges
         st.success("Badges replaced. Refresh other pages to see changes.")
+with c2:
+    if st.button("🔄 Refresh badge catalogue"):
+        count = len(refresh_badge_catalogue())
+        st.session_state.badges = load_badges()   # <-- already in patch
+        st.experimental_rerun()                   # <— NEW
 
 # --------------------------------------------------------------------------- #
 # DATA REFRESH (web scraping) ----------------------------------------------- #
