@@ -7,6 +7,7 @@ Unified web-scraping helpers for Holidays and Badges.
 import re
 from typing import Dict, Any
 import cloudscraper
+from requests_html import HTMLSession 
 import requests
 from bs4 import BeautifulSoup
 
@@ -19,62 +20,71 @@ from .data_store import (
 # 1) Harrow council term-dates scraper
 # --------------------------------------------------------------------------- #
 HARROW_URL = "https://www.harrow.gov.uk/schools-learning/school-term-dates"
-
 def refresh_harrow_holidays() -> list[dict]:
     """
-    Scrape Harrow Council's “Term dates” section by:
-     • Bypassing CF with cloudscraper
-     • Locating 'term date' heading (h1–h4)
-     • Parsing its first <ul> of <li> date ranges
+    Renders the Harrow term dates page in a headless browser,
+    extracts the date list under 'Term dates', and saves them.
     """
-    scraper = cloudscraper.create_scraper()
-    resp = scraper.get(HARROW_URL, timeout=30)
-    resp.raise_for_status()
 
-    soup = BeautifulSoup(resp.text, "html.parser")
+    session = HTMLSession()  # JS-capable behind the scenes :contentReference[oaicite:3]{index=3}
+    try:
+        r = session.get(HARROW_URL, timeout=30)
+        r.html.render(timeout=20)  # execute the client-side scripts :contentReference[oaicite:4]{index=4}
+    except Exception:
+        # on any failure, return what’s already in holidays.json
+        return load_holidays()
 
-    # 1) Find any heading containing 'term date'
+    soup = BeautifulSoup(r.html.html, "html.parser")
+
+    # 1) Locate a heading (h1–h4) whose text contains “term date” :contentReference[oaicite:5]{index=5}
     heading = soup.find(
         lambda t: t.name in ("h1","h2","h3","h4")
-                 and "term date" in t.get_text(strip=True).lower()
+                  and "term date" in t.get_text(strip=True).lower()
     )
     if not heading:
-        raise RuntimeError("Could not find 'Term dates' heading on Harrow page")
+        return load_holidays()
 
     # 2) Grab the very next <ul>
     ul = heading.find_next("ul")
     if not ul:
-        raise RuntimeError("Could not find holiday list after the heading")
+        return load_holidays()
 
-    holidays: list[dict] = []
+    scraped = []
     for li in ul.find_all("li"):
         text = li.get_text(" ", strip=True)
-        # e.g. "Monday 18 October to Friday 22 October"
-        m = re.search(r"(\d{1,2}\s+\w+\s+\d{4}|\w+\s+\d{1,2}\s+\w+)\s+to\s+(\d{1,2}\s+\w+\s+\d{4}|\w+\s+\d{1,2}\s+\w+)", text)
+        # match “18 October 2025 to 4 November 2025” or “18 October to 4 November”
+        m = re.search(
+            r"(\d{1,2}\s+\w+\s*(?:\d{4})?)\s+to\s+(\d{1,2}\s+\w+\s*(?:\d{4})?)",
+            text
+        )
         if not m:
             continue
         start_s, end_s = m.groups()
 
-        # If year is missing (e.g. "18 October"), append current year
         def parse_date(s: str) -> dt.date:
-            try:
-                return dt.datetime.strptime(s, "%d %B %Y").date()
-            except ValueError:
-                return dt.datetime.strptime(f"{s} {dt.date.today().year}", "%d %B %Y").date()
+            for fmt in ("%d %B %Y", "%d %B"):
+                try:
+                    # if year missing, strptime will fail the first format
+                    return dt.datetime.strptime(s, fmt).date()
+                except ValueError:
+                    continue
+            # fallback to today’s year
+            return dt.datetime.strptime(f"{s} {dt.date.today().year}", "%d %B %Y").date()
 
-        start = parse_date(start_s)
-        end   = parse_date(end_s)
-
-        holidays.append({
+        st = parse_date(start_s)
+        en = parse_date(end_s)
+        scraped.append({
             "name":  text,
-            "start": start.isoformat(),
-            "end":   end.isoformat(),
+            "start": st.isoformat(),
+            "end":   en.isoformat(),
         })
 
-    # Persist via data_store
-    save_holidays(holidays)
-    return holidays
-
+    # 3) If we actually got data, save it; otherwise keep existing :contentReference[oaicite:6]{index=6}
+    if scraped:
+        save_holidays(scraped)
+        return scraped
+    else:
+        return load_holidays()
 # --------------------------------------------------------------------------- #
 # 2) Badge catalogue scraper – bypass Cloudflare & hit static pages
 # --------------------------------------------------------------------------- #
