@@ -30,7 +30,11 @@ _CACHE: TTLCache = TTLCache(maxsize=100, ttl=600)   # 10-minute cache
 
 # ────────────────────────────── low-level call ───────────────────────────── #
 def _call_writer(prompt: str, model: str = WRITER_MODEL) -> str:
-    """Call Writer completion endpoint and return raw text (raises RuntimeError)."""
+    """
+    Call Writer completion API.
+    Handles BOTH envelope JSON (choices[0].text) and raw-text bodies.
+    Returns the suggestion text (string).
+    """
     if not WRITER_KEY:
         raise RuntimeError("WRITER_API_KEY is not set – define it in your environment")
 
@@ -40,8 +44,9 @@ def _call_writer(prompt: str, model: str = WRITER_MODEL) -> str:
     }
     payload = {
         "model": model,
-        "inputs": prompt,
-        "n": 1,  # single completion
+        # Writer expects 'text' not 'inputs' for /v1/completions
+        "text": prompt,
+        "num_results": 1,
     }
 
     try:
@@ -50,15 +55,21 @@ def _call_writer(prompt: str, model: str = WRITER_MODEL) -> str:
         raise RuntimeError(f"Network error contacting Writer API: {exc}") from None
 
     if resp.status_code == 401:
-        detail = resp.json().get("message", "Unauthorized")
-        raise RuntimeError(f"Writer API 401 – check your API key. Detail: {detail}")
+        raise RuntimeError("Writer API 401 – invalid or missing API key")
     if resp.status_code >= 500:
-        raise RuntimeError("Writer API is currently unavailable (5xx)")
+        raise RuntimeError("Writer API is down (5xx)")
 
+    # --- Try envelope JSON first ---
     try:
-        return resp.json()["choices"][0]["text"]
-    except (KeyError, ValueError) as exc:
-        raise RuntimeError(f"Unexpected response format from Writer: {exc}") from None
+        js = resp.json()
+        if isinstance(js, dict) and "choices" in js:
+            return js["choices"][0]["text"]
+    except ValueError:
+        # not JSON – fall back to raw text
+        pass
+
+    # --- raw text fallback ---
+    return resp.text.strip()
 
 
 # ───────────────────────────── prompt builder ────────────────────────────── #
@@ -139,20 +150,16 @@ def generate_schedule(
     prompt = _build_prompt(events, holidays, badge_needs, prefs)
     raw = _call_writer(prompt)
 
-    # 4) Parse JSON safely
+    # 4) Parse the returned suggestions
     try:
         suggestions = json.loads(raw)
     except json.JSONDecodeError:
+        # maybe the JSON is wrapped in an envelope like [{"badge":...}]
         import re
-
         m = re.search(r"\[.*\]", raw, re.S)
         if not m:
-            raise RuntimeError("Writer returned non-JSON response")
+            raise RuntimeError("Writer returned non-JSON suggestions")
         suggestions = json.loads(m.group(0))
-
-    # 5) Cache & return
-    _CACHE[key] = suggestions
-    return suggestions
 
 
 def add_suggestion(
