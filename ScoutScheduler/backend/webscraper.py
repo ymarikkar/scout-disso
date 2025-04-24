@@ -83,7 +83,7 @@ def refresh_harrow_holidays() -> list[dict]:
         save_holidays(scraped)
         return scraped
     else:
-        return load_holidays()----------------------------------------- #
+        return load_holidays()
 # 2) Badge catalogue scraper – bypass Cloudflare & hit static pages
 # --------------------------------------------------------------------------- #
 SECTION_URLS = {
