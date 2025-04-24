@@ -4,42 +4,47 @@ import sys, os
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
+# pages/calendar.py
 
 import streamlit as st
 from streamlit_calendar import calendar
 from datetime import date
 from dateutil.parser import parse as parse_date
 
-from backend.data_store import load_holidays
-# events already live in st.session_state.events (set in streamlit_app.py)
+from backend.data_store import load_events, save_events, load_holidays
 
+# ─── SESSION-STATE BOOTSTRAP ──────────────────────────────────────────────
+if "events" not in st.session_state:
+    st.session_state.events = load_events()
+
+# ─── PAGE TITLE ────────────────────────────────────────────────────────────
 st.title("📅 Calendar")
 
-# ------------------------- build event feed ------------------------------- #
+# ─── BUILD EVENT FEED ──────────────────────────────────────────────────────
 cal_events = [
     {
         "title": ev["title"],
         "start": ev["date"],
         "extendedProps": {"description": ev["description"]},
-        "backgroundColor": "#3B82F6",          # blue for events
+        "backgroundColor": "#3B82F6",  # blue for user events
     }
     for ev in st.session_state.events
 ]
 
-# ----- add holiday overlay (pink) ---------------------------------------- #
+# ─── HOLIDAY OVERLAY ───────────────────────────────────────────────────────
 for hol in load_holidays():
     cal_events.append(
         {
             "title": hol["name"],
             "start": hol["start"],
             "end": hol["end"],
-            "backgroundColor": "#EC4899",      # pink for holidays
+            "backgroundColor": "#EC4899",  # pink
             "borderColor": "#EC4899",
-            "display": "background",           # coloured bar behind days
+            "display": "background",
         }
     )
 
-# --------------------------- calendar widget ----------------------------- #
+# ─── RENDER CALENDAR ───────────────────────────────────────────────────────
 selected = calendar(
     events=cal_events,
     options={
@@ -50,7 +55,7 @@ selected = calendar(
     custom_css=".fc {font-size:0.9rem;}",
 )
 
-# --------------------------- click handlers ------------------------------ #
+# ─── CLICK HANDLERS ─────────────────────────────────────────────────────────
 if selected and selected.get("event"):
     ev = selected["event"]
     st.info(f"**{ev['title']}**  \n{ev['extendedProps'].get('description','')}")
@@ -63,7 +68,5 @@ elif selected and selected.get("start"):
             st.session_state.events.append(
                 {"date": chosen.isoformat(), "title": title, "description": desc}
             )
-            from backend.data_store import save_events
-
             save_events(st.session_state.events)
             st.experimental_rerun()

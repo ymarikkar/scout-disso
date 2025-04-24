@@ -22,52 +22,58 @@ HARROW_URL = "https://www.harrow.gov.uk/schools-learning/school-term-dates"
 
 def refresh_harrow_holidays() -> list[dict]:
     """
-    Scrape Harrow Council term dates and persist via data_store.
-    Returns the list of holiday dicts.
+    Scrape Harrow Council's “Term dates” section by:
+     • Bypassing CF with cloudscraper
+     • Locating 'term date' heading (h1–h4)
+     • Parsing its first <ul> of <li> date ranges
     """
     scraper = cloudscraper.create_scraper()
     resp = scraper.get(HARROW_URL, timeout=30)
     resp.raise_for_status()
 
     soup = BeautifulSoup(resp.text, "html.parser")
-    box = soup.find("div", class_="harrow-info-box--key-info")
-    if not box:
-        raise RuntimeError("Term-date box not found on Harrow page")
 
-    holidays = []
-    year_header = box.find("h3").get_text(strip=True)
-    content = box.find("div", class_="harrow-info-box__content")
+    # 1) Find any heading containing 'term date'
+    heading = soup.find(
+        lambda t: t.name in ("h1","h2","h3","h4")
+                 and "term date" in t.get_text(strip=True).lower()
+    )
+    if not heading:
+        raise RuntimeError("Could not find 'Term dates' heading on Harrow page")
 
-    import datetime as dt
-    import re
+    # 2) Grab the very next <ul>
+    ul = heading.find_next("ul")
+    if not ul:
+        raise RuntimeError("Could not find holiday list after the heading")
 
-    for p in content.find_all("p"):
-        term_name = p.find("strong")
-        if not term_name:
+    holidays: list[dict] = []
+    for li in ul.find_all("li"):
+        text = li.get_text(" ", strip=True)
+        # e.g. "Monday 18 October to Friday 22 October"
+        m = re.search(r"(\d{1,2}\s+\w+\s+\d{4}|\w+\s+\d{1,2}\s+\w+)\s+to\s+(\d{1,2}\s+\w+\s+\d{4}|\w+\s+\d{1,2}\s+\w+)", text)
+        if not m:
             continue
-        term_name = term_name.get_text(strip=True)
-        ul = p.find_next_sibling("ul")
-        if not ul:
-            continue
+        start_s, end_s = m.groups()
 
-        for li in ul.find_all("li"):
-            text = li.get_text(strip=True)
-            m = re.search(r"(\d{1,2}\s+\w+\s+\d{4})\s+to\s+(\d{1,2}\s+\w+\s+\d{4})", text)
-            if not m:
-                continue
-            start_s, end_s = m.groups()
-            start = dt.datetime.strptime(start_s, "%d %B %Y").date().isoformat()
-            end   = dt.datetime.strptime(end_s, "%d %B %Y").date().isoformat()
-            holidays.append({
-                "name": f"{term_name} ({year_header})",
-                "start": start,
-                "end":   end,
-            })
+        # If year is missing (e.g. "18 October"), append current year
+        def parse_date(s: str) -> dt.date:
+            try:
+                return dt.datetime.strptime(s, "%d %B %Y").date()
+            except ValueError:
+                return dt.datetime.strptime(f"{s} {dt.date.today().year}", "%d %B %Y").date()
 
-    # persist and return
+        start = parse_date(start_s)
+        end   = parse_date(end_s)
+
+        holidays.append({
+            "name":  text,
+            "start": start.isoformat(),
+            "end":   end.isoformat(),
+        })
+
+    # Persist via data_store
     save_holidays(holidays)
     return holidays
-
 
 # --------------------------------------------------------------------------- #
 # 2) Badge catalogue scraper – bypass Cloudflare & hit static pages
