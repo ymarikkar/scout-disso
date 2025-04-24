@@ -10,6 +10,8 @@ import cloudscraper
 from requests_html import HTMLSession 
 import requests
 from bs4 import BeautifulSoup
+import datetime as dt
+import re
 
 from .data_store import (
     load_badges, save_badges,
@@ -20,23 +22,33 @@ from .data_store import (
 # 1) Harrow council term-dates scraper
 # --------------------------------------------------------------------------- #
 HARROW_URL = "https://www.harrow.gov.uk/schools-learning/school-term-dates"
+
+def parse_date(s: str) -> dt.date:
+    """Parse '18 October 2025' or '18 October' → dt.date."""
+    for fmt in ("%d %B %Y", "%d %B"):
+        try:
+            return dt.datetime.strptime(s, fmt).date()
+        except ValueError:
+            continue
+    # fallback: attach current year
+    return dt.datetime.strptime(f"{s} {dt.date.today().year}", "%d %B %Y").date()
+
 def refresh_harrow_holidays() -> list[dict]:
     """
-    Renders the Harrow term dates page in a headless browser,
-    extracts the date list under 'Term dates', and saves them.
+    Render the Harrow term-dates page, then:
+      1) Try to parse a UL of LI items under 'term date'
+      2) If none found, parse the first TABLE of dates under that heading
     """
-
-    session = HTMLSession()  # JS-capable behind the scenes :contentReference[oaicite:3]{index=3}
+    session = HTMLSession()
     try:
         r = session.get(HARROW_URL, timeout=30)
-        r.html.render(timeout=20)  # execute the client-side scripts :contentReference[oaicite:4]{index=4}
+        r.html.render(timeout=20)
     except Exception:
-        # on any failure, return what’s already in holidays.json
         return load_holidays()
 
     soup = BeautifulSoup(r.html.html, "html.parser")
 
-    # 1) Locate a heading (h1–h4) whose text contains “term date” :contentReference[oaicite:5]{index=5}
+    # Locate any heading h1–h4 containing 'term date'
     heading = soup.find(
         lambda t: t.name in ("h1","h2","h3","h4")
                   and "term date" in t.get_text(strip=True).lower()
@@ -44,42 +56,32 @@ def refresh_harrow_holidays() -> list[dict]:
     if not heading:
         return load_holidays()
 
-    # 2) Grab the very next <ul>
+    # 1) UL parser
     ul = heading.find_next("ul")
-    if not ul:
-        return load_holidays()
-
     scraped = []
-    for li in ul.find_all("li"):
-        text = li.get_text(" ", strip=True)
-        # match “18 October 2025 to 4 November 2025” or “18 October to 4 November”
-        m = re.search(
-            r"(\d{1,2}\s+\w+\s*(?:\d{4})?)\s+to\s+(\d{1,2}\s+\w+\s*(?:\d{4})?)",
-            text
-        )
-        if not m:
-            continue
-        start_s, end_s = m.groups()
+    if ul:
+        for li in ul.find_all("li"):
+            text = li.get_text(" ", strip=True)
+            m = re.search(r"(\d{1,2}\s+\w+\s*(?:\d{4})?)\s+to\s+(\d{1,2}\s+\w+\s*(?:\d{4})?)", text)
+            if not m:
+                continue
+            st, en = (parse_date(m.group(1)), parse_date(m.group(2)))
+            scraped.append({"name": text, "start": st.isoformat(), "end": en.isoformat()})
 
-        def parse_date(s: str) -> dt.date:
-            for fmt in ("%d %B %Y", "%d %B"):
-                try:
-                    # if year missing, strptime will fail the first format
-                    return dt.datetime.strptime(s, fmt).date()
-                except ValueError:
+    # 2) TABLE parser (fallback)
+    if not scraped:
+        table = heading.find_next("table")
+        if table:
+            rows = table.find_all("tr")
+            for tr in rows[1:]:  # skip header row
+                cols = [td.get_text(" ", strip=True) for td in tr.find_all(["td","th"])]
+                if len(cols) < 3:
                     continue
-            # fallback to today’s year
-            return dt.datetime.strptime(f"{s} {dt.date.today().year}", "%d %B %Y").date()
+                term, start_s, end_s = cols[0], cols[1], cols[2]
+                st_dt, en_dt = parse_date(start_s), parse_date(end_s)
+                scraped.append({"name": term, "start": st_dt.isoformat(), "end": en_dt.isoformat()})
 
-        st = parse_date(start_s)
-        en = parse_date(end_s)
-        scraped.append({
-            "name":  text,
-            "start": st.isoformat(),
-            "end":   en.isoformat(),
-        })
-
-    # 3) If we actually got data, save it; otherwise keep existing :contentReference[oaicite:6]{index=6}
+    # Persist if we got data, else keep old
     if scraped:
         save_holidays(scraped)
         return scraped
