@@ -8,37 +8,19 @@ if ROOT not in sys.path:
 import streamlit as st
 from backend import badge_logic
 
+from backend.data_store import load_badges
+
 st.title("🎖️ Badge Manager")
 
-# ----- Badge table -----------------------------------------------------------
-st.dataframe(st.session_state.badges, use_container_width=True)
+badges = load_badges()
 
-# ----- Add / edit / delete ---------------------------------------------------
-with st.expander("➕ Add a new badge"):
-    name = st.text_input("Badge name")
-    sessions = st.number_input("Sessions required", 1, 20, 1)
-    description = st.text_area("Description")
-    requirements = st.text_area("Requirements (one per line)")
-    if st.button("Save badge"):
-        st.session_state.badges[name] = {
-            "name": name,
-            "sessions": sessions,
-            "status": "Not Started",
-            "completion": 0,
-            "description": description,
-            "requirements": [r.strip() for r in requirements.splitlines() if r],
-        }
-        badge_logic._write(st.session_state.badges)
-        st.rerun()
-
-# Simple inline delete
-to_delete = st.selectbox("Select badge to delete", [""] + list(st.session_state.badges))
-if to_delete and st.button("Delete selected badge"):
-    st.session_state.badges.pop(to_delete, None)
-    badge_logic._write(st.session_state.badges)
-    st.rerun()
-
-from backend.data_store import load_badges, save_badges   # already present
-
-# 🔽  NEW: keep session and file in sync every render
-st.session_state.badges = load_badges()
+for name, info in badges.items():
+    with st.expander(f"{name}  —  {info['status']} ({info['completion']}%)"):
+        st.markdown(f"**Sessions required:** {info['sessions']}")
+        st.markdown(f"**Section:** {info.get('section', '—')}")
+        st.markdown(f"**Description:** {info['description'] or 'No description'}")
+        if info["requirements"]:
+            st.markdown("**Requirements:**")
+            for req in info["requirements"]:
+                st.markdown(f"- {req}")
+        st.divider()
