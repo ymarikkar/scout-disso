@@ -4,6 +4,8 @@ import requests
 
 from .data_store import save_events
 from .scheduler_cache import get as cache_get, set as cache_set
+from dotenv import load_dotenv
+load_dotenv()
 
 WRITER_URL = "https://api.writer.com/v1/completions"           # Writer docs :contentReference[oaicite:1]{index=1}
 WRITER_KEY = os.getenv("WRITER_API_KEY")
