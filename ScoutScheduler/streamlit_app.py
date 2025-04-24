@@ -2,7 +2,23 @@
 # --------------------------------------------------------------------------- #
 # Scout-Disso – Streamlit front-end
 # --------------------------------------------------------------------------- #
-import streamlit as st
+ # streamlit_app.py
+# streamlit_app.py (top of file)
+import sys, os
+
+# Ensure this file’s folder (ScoutScheduler/) is on Python’s search path
+HERE = os.path.dirname(__file__)
+if HERE not in sys.path:
+    sys.path.insert(0, HERE)
+
+
+-import streamlit as st
++import sys
++import os
++import streamlit as st
+ from datetime import date
+ from backend import scheduler_logic
+
 from datetime import date
 from backend import scheduler_logic
 from backend.data_store import (
