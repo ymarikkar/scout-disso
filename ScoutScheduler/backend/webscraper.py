@@ -22,34 +22,65 @@ from typing import Dict
 FINDER_URL = "https://www.scouts.org.uk/activities-and-badges/badge-finder/"
 
 def refresh_badge_catalogue() -> Dict[str, dict]:
-    html = requests.get(FINDER_URL, timeout=30).text
+    """
+    Scrape the __NEXT_DATA__ JSON from the badge-finder page to load every badge.
+    """
+    URL = "https://www.scouts.org.uk/activities-and-badges/badge-finder/"
+
+    # 1) fetch the page
+    r = requests.get(URL, timeout=30)
+    r.raise_for_status()
+    html = r.text
+
+    # 2) parse the Next.js data blob
     soup = BeautifulSoup(html, "html.parser")
-    # Next.js embeds all page data in this <script> tag
     script = soup.find("script", id="__NEXT_DATA__")
+    if not script or not script.string:
+        raise RuntimeError("Could not find __NEXT_DATA__ on badge-finder page")
+
     data = json.loads(script.string)
 
-    # The exact path may vary; inspect data["props"]["pageProps"] in your browser
-    badge_items = data["props"]["pageProps"]["allBadges"]  # or similar key
+    # 3) locate the badge list in the JSON. The exact path may differ; inspect in your browser.
+    #    In my tests it's under props.pageProps.allBadges or props.pageProps.badges
+    page_props = data.get("props", {}) \
+                     .get("pageProps", {})
 
-    badges = {}
-    for itm in badge_items:
-        name = itm["title"]
+    badge_items = (
+        page_props.get("allBadges")
+        or page_props.get("badges")
+        or []
+    )
+
+    if not badge_items:
+        raise RuntimeError("Couldn’t locate badge list in __NEXT_DATA__")
+
+    badges: Dict[str, dict] = {}
+    for item in badge_items:
+        # Common fields might vary—adjust key names if needed:
+        name = item.get("title") or item.get("name")
+        if not name:
+            continue
+
+        description = item.get("summary") or item.get("description") or ""
+        sessions = item.get("hours") or item.get("sessions") or 1
+
         badges[name] = {
             "name": name,
-            "sessions": itm.get("sessions", 1),
+            "sessions": sessions,
             "status": "Not Started",
             "completion": 0,
-            "description": itm.get("summary", ""),
-            "requirements": itm.get("requirements", []),
+            "description": description,
+            "requirements": item.get("requirements", []),
         }
 
-    # Then merge and save exactly as above…
-    from .data_store import save_badges, load_badges
+    # 4) Merge with any existing local progress, then persist
+    from .data_store import load_badges, save_badges
     existing = load_badges()
     for nm, rec in existing.items():
         if nm in badges:
-            badges[nm]["status"]     = rec["status"]
-            badges[nm]["completion"] = rec["completion"]
+            badges[nm]["status"]     = rec.get("status", badges[nm]["status"])
+            badges[nm]["completion"] = rec.get("completion", badges[nm]["completion"])
+
     save_badges(badges)
     return badges
 
