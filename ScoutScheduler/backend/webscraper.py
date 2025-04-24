@@ -1,13 +1,77 @@
-# ScoutScheduler/backend/webscraping.py
+# ScoutScheduler/backend/webscraper.py
 
-import datetime as dt
+"""
+Unified web-scraping helpers for Holidays and Badges.
+"""
+
+import re
 from typing import Dict, Any
 import cloudscraper
+import requests
 from bs4 import BeautifulSoup
 
-from .data_store import load_badges, save_badges
+from .data_store import (
+    load_badges, save_badges,
+    load_holidays, save_holidays,
+)
 
-# These static pages list every badge with an <h2> name and a <p> description
+# --------------------------------------------------------------------------- #
+# 1) Harrow council term-dates scraper
+# --------------------------------------------------------------------------- #
+HARROW_URL = "https://www.harrow.gov.uk/schools-learning/school-term-dates"
+
+def refresh_harrow_holidays() -> list[dict]:
+    """
+    Scrape Harrow Council term dates and persist via data_store.
+    Returns the list of holiday dicts.
+    """
+    scraper = cloudscraper.create_scraper()
+    resp = scraper.get(HARROW_URL, timeout=30)
+    resp.raise_for_status()
+
+    soup = BeautifulSoup(resp.text, "html.parser")
+    box = soup.find("div", class_="harrow-info-box--key-info")
+    if not box:
+        raise RuntimeError("Term-date box not found on Harrow page")
+
+    holidays = []
+    year_header = box.find("h3").get_text(strip=True)
+    content = box.find("div", class_="harrow-info-box__content")
+
+    import datetime as dt
+    import re
+
+    for p in content.find_all("p"):
+        term_name = p.find("strong")
+        if not term_name:
+            continue
+        term_name = term_name.get_text(strip=True)
+        ul = p.find_next_sibling("ul")
+        if not ul:
+            continue
+
+        for li in ul.find_all("li"):
+            text = li.get_text(strip=True)
+            m = re.search(r"(\d{1,2}\s+\w+\s+\d{4})\s+to\s+(\d{1,2}\s+\w+\s+\d{4})", text)
+            if not m:
+                continue
+            start_s, end_s = m.groups()
+            start = dt.datetime.strptime(start_s, "%d %B %Y").date().isoformat()
+            end   = dt.datetime.strptime(end_s, "%d %B %Y").date().isoformat()
+            holidays.append({
+                "name": f"{term_name} ({year_header})",
+                "start": start,
+                "end":   end,
+            })
+
+    # persist and return
+    save_holidays(holidays)
+    return holidays
+
+
+# --------------------------------------------------------------------------- #
+# 2) Badge catalogue scraper – bypass Cloudflare & hit static pages
+# --------------------------------------------------------------------------- #
 SECTION_URLS = {
     "Beavers":   "https://www.scouts.org.uk/beavers/activity-badges/",
     "Cubs":      "https://www.scouts.org.uk/cubs/activity-badges/",
@@ -17,24 +81,23 @@ SECTION_URLS = {
 
 def refresh_badge_catalogue() -> Dict[str, Dict[str, Any]]:
     """
-    Bypass Cloudflare with cloudscraper, fetch each section’s static page,
-    parse every <h2> + next <p> (or <li>) for name/description,
-    merge in existing progress, and save to data/badges.json.
+    Scrape every section’s static Activity-Badges page to collect
+    all badges. Bypasses Cloudflare with cloudscraper.
     """
-    scraper = cloudscraper.create_scraper()  # handles Cloudflare
+    scraper = cloudscraper.create_scraper()
     all_badges: Dict[str, Dict[str, Any]] = {}
 
     for section, url in SECTION_URLS.items():
-        r = scraper.get(url, timeout=30)
-        r.raise_for_status()
-        soup = BeautifulSoup(r.text, "html.parser")
+        resp = scraper.get(url, timeout=30)
+        resp.raise_for_status()
+        soup = BeautifulSoup(resp.text, "html.parser")
 
         for h2 in soup.find_all("h2"):
             name = h2.get_text(strip=True)
             if not name or name in all_badges:
                 continue
 
-            # grab first <p> or <li> sibling for description
+            # grab next <p> or <li> for description
             desc = ""
             sib = h2.find_next_sibling()
             while sib:
@@ -53,7 +116,7 @@ def refresh_badge_catalogue() -> Dict[str, Dict[str, Any]]:
                 "section":      section,
             }
 
-    # merge existing progress so you don’t lose any completions
+    # merge existing progress
     existing = load_badges()
     for nm, rec in existing.items():
         if nm in all_badges:
