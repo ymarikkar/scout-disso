@@ -1,105 +1,120 @@
 """
 ScoutScheduler ── AI Scheduler Logic
 ===================================
-Uses Writer Chat-Completion API to create badge-session date suggestions.
+Generates badge-session date suggestions with Writer’s API.
 """
 
 from __future__ import annotations
 import os, json, hashlib
 from typing import List, Dict, Any
+
 import requests
-from cachetools import TTLCache
-
-from .data_store import save_events
-from dotenv import load_dotenv
-load_dotenv()   # picks up .env variables
-
-import requests, os, json, hashlib
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 from cachetools import TTLCache
-from typing import List, Dict, Any
 
-# Re-usable session with back-off
+from .data_store import save_events
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Writer configuration
+# ─────────────────────────────────────────────────────────────────────────────
+API_KEY        = os.getenv("WRITER_API_KEY")        # set this in env or .env
+CHAT_MODEL     = os.getenv("WRITER_MODEL", "palmyra-chat")
+BASE_MODEL     = CHAT_MODEL.replace("-chat", "-base")  # fallback model
+
+CHAT_URL       = "https://api.writer.com/v1/chat/completions"
+COMP_URL       = "https://api.writer.com/v1/completions"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Retryable HTTP session (3 tries, 1.5-s back-off)
+# ─────────────────────────────────────────────────────────────────────────────
 _session = requests.Session()
-retry = Retry(
-    total=3,                 # 3 attempts
-    backoff_factor=1.5,      # 0s, 1.5s, 3s delays
-    status_forcelist=[502, 503, 504],
-    allowed_methods=["POST"],
-)
-_session.mount("https://", HTTPAdapter(max_retries=retry))
-
-
-
-# ─── Writer API config ─────────────────────────────────────────────────────
-CHAT_URL   = "https://api.writer.com/v1/chat/completions"
-COMP_URL   = "https://api.writer.com/v1/completions"
-MODEL      = os.getenv("WRITER_MODEL", "palmyra-chat")
-API_KEY    = os.getenv("WRITER_API_KEY")
-CACHE      = TTLCache(maxsize=100, ttl=600)
-
-# shared retrying session (60-second timeout)
-session = requests.Session()
-session.mount("https://", HTTPAdapter(
-    max_retries=Retry(total=3, backoff_factor=1.5,
-                      status_forcelist=[502,503,504]))
+_session.mount(
+    "https://",
+    HTTPAdapter(
+        max_retries=Retry(
+            total=3,
+            backoff_factor=1.5,
+            status_forcelist=[502, 503, 504],
+            allowed_methods=["POST"],
+        )
+    ),
 )
 
-# ─── in-memory 10-minute cache ─────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────────────────────
+# In-memory 10-minute cache
+# ─────────────────────────────────────────────────────────────────────────────
 _CACHE: TTLCache = TTLCache(maxsize=100, ttl=600)
 
-# ─── Call Writer (chat) ────────────────────────────────────────────────────
-def _call_writer_chat(prompt: str) -> str:
-    if not WRITER_KEY:
-        raise RuntimeError("WRITER_API_KEY is not set")
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Writer helpers
+# ─────────────────────────────────────────────────────────────────────────────
+def _writer_chat(prompt: str) -> str:
+    """Primary call – chat endpoint with strict JSON response."""
     body = {
-        "model": WRITER_MODEL,
+        "model": CHAT_MODEL,
         "messages": [
             {"role": "system", "content": "Return ONLY valid JSON."},
-            {"role": "user", "content": prompt},
+            {"role": "user",   "content": prompt},
         ],
         "response_format": {"type": "json_object"},
         "n": 1,
     }
-
-    resp = _session.post(
-        WRITER_CHAT_URL,
-        headers={"Authorization": f"Bearer {WRITER_KEY}",
-                 "Content-Type": "application/json"},
+    r = _session.post(
+        CHAT_URL,
+        headers={"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"},
         json=body,
         timeout=60,
     )
-    if resp.status_code == 401:
-        raise RuntimeError("Writer 401 – bad API key")
-    resp.raise_for_status()
+    if r.status_code == 400:
+        raise requests.HTTPError(r.text, response=r)
+    if r.status_code == 401:
+        raise RuntimeError("Writer 401 – invalid API key")
+    r.raise_for_status()
+    return r.json()["choices"][0]["message"]["content"]
 
-    # ---------- tolerant parsing ----------
-    try:
-        data = resp.json()
-    except ValueError:
-        # non-JSON body
-        return resp.text.strip()
 
-    # 1) OpenAI-style
+def _writer_comp(prompt: str) -> str:
+    """Fallback – completions endpoint (output_format = json)."""
+    body = {
+        "model": BASE_MODEL,
+        "text": prompt,
+        "num_results": 1,
+        "output_format": "json",
+    }
+    r = _session.post(
+        COMP_URL,
+        headers={"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"},
+        json=body,
+        timeout=60,
+    )
+    r.raise_for_status()
+    data = r.json()
     if "choices" in data:
-        choice = data["choices"][0]
-        if "message" in choice:
-            return choice["message"]["content"]
-        if "text" in choice:
-            return choice["text"]
+        return data["choices"][0].get("text") or data["choices"][0].get("content", "")
+    return data.get("content", "")
 
-    # 2) Some Writer plans
-    if "content" in data:
-        return data["content"]
-    if "data" in data and isinstance(data["data"], list):
-        return data["data"][0].get("text") or data["data"][0].get("content", "")
 
-    # 3) Unknown format
-    raise RuntimeError(f"Unexpected Writer response: {data}")
+def _call_writer(prompt: str) -> str:
+    """Chat first; on 400 fall back to completions."""
+    if not API_KEY:
+        raise RuntimeError("WRITER_API_KEY is not set in your environment.")
+    try:
+        return _writer_chat(prompt)
+    except requests.HTTPError as e:
+        if e.response is not None and e.response.status_code == 400:
+            # print body for debug
+            print("Writer chat 400 body →", e.response.text[:250])
+            return _writer_comp(prompt)
+        raise RuntimeError(f"Writer error: {e}") from None
+    except requests.Timeout:
+        raise RuntimeError("Writer API timed out; please try again.") from None
 
-# ─── Prompt builder ────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Prompt builder
+# ─────────────────────────────────────────────────────────────────────────────
 def _build_prompt(events, holidays, badge_needs, prefs) -> str:
     return f"""
 Existing events: {[e['date'] for e in events]}
@@ -117,20 +132,23 @@ that do NOT clash with events or holidays and respect preferences.
 Return ONLY valid JSON in this form:
 
 [
-  {{"badge":"Badge Name","date":"YYYY-MM-DD"}},
-  …
+  {{"badge":"Badge Name","date":"YYYY-MM-DD"}}
 ]
 """
 
-# ─── Public functions ──────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Public API
+# ─────────────────────────────────────────────────────────────────────────────
 def generate_schedule(
     events: List[Dict[str, Any]],
     badges: Dict[str, Dict[str, Any]],
     holidays: List[Dict[str, Any]],
     prefs: Dict[str, Any],
 ) -> List[Dict[str, str]]:
-    """Return list of {{badge,date}} suggestions (cached)."""
-
+    """
+    Return list of {"badge","date"} suggestions (uses cache, raises RuntimeError on failure).
+    """
     badge_needs = [
         {
             "name": n,
@@ -153,18 +171,26 @@ def generate_schedule(
         return cached
 
     prompt = _build_prompt(events, holidays, badge_needs, prefs)
-    raw_json = _call_writer_chat(prompt)
+    raw = _call_writer(prompt)
 
     try:
-        suggestions = json.loads(raw_json)
+        suggestions = json.loads(raw)
     except json.JSONDecodeError:
-        raise RuntimeError("Writer returned non-JSON suggestions:\n" + raw_json)
+        # attempt to pull JSON array from raw text
+        import re
+        m = re.search(r"\[.*\]", raw, re.S)
+        if not m:
+            raise RuntimeError("Writer returned non-JSON suggestions:\n" + raw)
+        suggestions = json.loads(m.group(0))
 
     _CACHE[cache_key] = suggestions
     return suggestions
 
+
 def add_suggestion(events: List[Dict[str, Any]], suggestion: Dict[str, str]) -> List[Dict[str, Any]]:
-    """Append suggestion to events list and persist to disk."""
+    """
+    Append a suggestion to events list and persist to disk.
+    """
     events.append(
         {"date": suggestion["date"], "title": suggestion["badge"], "description": ""}
     )
