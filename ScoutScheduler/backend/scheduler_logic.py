@@ -74,26 +74,48 @@ def _writer_chat(prompt: str) -> str:
     r.raise_for_status()
     return r.json()["choices"][0]["message"]["content"]
 
+    if r.status_code >= 500:
+    raise RuntimeError(
+        "Writer API is temporarily unavailable (5xx). "
+        "Please wait a few minutes and try again."
+    )
+
+
 
 def _writer_comp(prompt: str) -> str:
-    """Fallback – completions endpoint (output_format = json)."""
+    """Fallback – Writer /v1/completions with JSON output."""
     body = {
-        "model": BASE_MODEL,
-        "text": prompt,
-        "num_results": 1,
-        "output_format": "json",
+        "model": BASE_MODEL,      # e.g. palmyra-base
+        "prompt": prompt,         # ← required field
+        "n": 1,                   # one completion
+        "output_format": "json",  # force JSON
     }
+
     r = _session.post(
         COMP_URL,
-        headers={"Authorization": f"Bearer {API_KEY}", "Content-Type": "application/json"},
+        headers={
+            "Authorization": f"Bearer {API_KEY}",
+            "Content-Type": "application/json",
+        },
         json=body,
         timeout=60,
     )
+    if r.status_code == 400:
+        raise RuntimeError(f"Writer 400 (completions): {r.text}")
     r.raise_for_status()
+
     data = r.json()
     if "choices" in data:
         return data["choices"][0].get("text") or data["choices"][0].get("content", "")
     return data.get("content", "")
+
+    if r.status_code >= 500:
+        raise RuntimeError(
+            "Writer API is temporarily unavailable (5xx). "
+            "Please wait a few minutes and try again."
+        )
+
+
 
 
 def _call_writer(prompt: str) -> str:
