@@ -11,11 +11,40 @@ import requests
 from cachetools import TTLCache
 
 from .data_store import save_events
+from dotenv import load_dotenv
+load_dotenv()   # picks up .env variables
+
+import requests, os, json, hashlib
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
+from cachetools import TTLCache
+from typing import List, Dict, Any
+
+# Re-usable session with back-off
+_session = requests.Session()
+retry = Retry(
+    total=3,                 # 3 attempts
+    backoff_factor=1.5,      # 0s, 1.5s, 3s delays
+    status_forcelist=[502, 503, 504],
+    allowed_methods=["POST"],
+)
+_session.mount("https://", HTTPAdapter(max_retries=retry))
+
+
 
 # ─── Writer API config ─────────────────────────────────────────────────────
-WRITER_CHAT_URL   = "https://api.writer.com/v1/chat/completions"
-WRITER_MODEL      = os.getenv("WRITER_MODEL", "palmyra-chat")  # chat-enabled model
-WRITER_KEY        = os.getenv("WRITER_API_KEY")                # must be exported
+CHAT_URL   = "https://api.writer.com/v1/chat/completions"
+COMP_URL   = "https://api.writer.com/v1/completions"
+MODEL      = os.getenv("WRITER_MODEL", "palmyra-chat")
+API_KEY    = os.getenv("WRITER_API_KEY")
+CACHE      = TTLCache(maxsize=100, ttl=600)
+
+# shared retrying session (60-second timeout)
+session = requests.Session()
+session.mount("https://", HTTPAdapter(
+    max_retries=Retry(total=3, backoff_factor=1.5,
+                      status_forcelist=[502,503,504]))
+)
 
 # ─── in-memory 10-minute cache ─────────────────────────────────────────────
 _CACHE: TTLCache = TTLCache(maxsize=100, ttl=600)
@@ -23,33 +52,52 @@ _CACHE: TTLCache = TTLCache(maxsize=100, ttl=600)
 # ─── Call Writer (chat) ────────────────────────────────────────────────────
 def _call_writer_chat(prompt: str) -> str:
     if not WRITER_KEY:
-        raise RuntimeError("WRITER_API_KEY is not set in your environment.")
+        raise RuntimeError("WRITER_API_KEY is not set")
 
-    headers = {
-        "Authorization": f"Bearer {WRITER_KEY}",
-        "Content-Type": "application/json",
-    }
     body = {
         "model": WRITER_MODEL,
         "messages": [
-            {
-                "role": "system",
-                "content": "You are an assistant that ONLY returns valid JSON arrays.",
-            },
+            {"role": "system", "content": "Return ONLY valid JSON."},
             {"role": "user", "content": prompt},
         ],
-        "response_format": {"type": "json_object"},   # force JSON
+        "response_format": {"type": "json_object"},
         "n": 1,
     }
 
-    resp = requests.post(WRITER_CHAT_URL, headers=headers, json=body, timeout=30)
+    resp = _session.post(
+        WRITER_CHAT_URL,
+        headers={"Authorization": f"Bearer {WRITER_KEY}",
+                 "Content-Type": "application/json"},
+        json=body,
+        timeout=60,
+    )
     if resp.status_code == 401:
-        raise RuntimeError("Writer API 401 – invalid API key")
-    if resp.status_code >= 500:
-        raise RuntimeError("Writer API is unavailable (5xx)")
+        raise RuntimeError("Writer 401 – bad API key")
+    resp.raise_for_status()
 
-    data = resp.json()
-    return data["choices"][0]["message"]["content"]
+    # ---------- tolerant parsing ----------
+    try:
+        data = resp.json()
+    except ValueError:
+        # non-JSON body
+        return resp.text.strip()
+
+    # 1) OpenAI-style
+    if "choices" in data:
+        choice = data["choices"][0]
+        if "message" in choice:
+            return choice["message"]["content"]
+        if "text" in choice:
+            return choice["text"]
+
+    # 2) Some Writer plans
+    if "content" in data:
+        return data["content"]
+    if "data" in data and isinstance(data["data"], list):
+        return data["data"][0].get("text") or data["data"][0].get("content", "")
+
+    # 3) Unknown format
+    raise RuntimeError(f"Unexpected Writer response: {data}")
 
 # ─── Prompt builder ────────────────────────────────────────────────────────
 def _build_prompt(events, holidays, badge_needs, prefs) -> str:

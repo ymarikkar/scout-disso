@@ -17,6 +17,8 @@ import os
 import streamlit as st
 from datetime import date
 from backend import scheduler_logic
+from dotenv import load_dotenv
+load_dotenv()   # picks up .env variables
 
 from datetime import date
 from backend import scheduler_logic
