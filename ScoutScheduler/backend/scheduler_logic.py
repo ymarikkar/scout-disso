@@ -75,9 +75,9 @@ def _writer_chat(prompt: str) -> str:
     return r.json()["choices"][0]["message"]["content"]
 
     if r.status_code >= 500:
-    raise RuntimeError(
-        "Writer API is temporarily unavailable (5xx). "
-        "Please wait a few minutes and try again."
+        raise RuntimeError(
+            "Writer API is temporarily unavailable (5xx). "
+            "Please wait a few minutes and try again."
     )
 
 
