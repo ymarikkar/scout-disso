@@ -1,5 +1,12 @@
+# Python
 __pycache__/
-*.pyc
-data/
-venv/
-*.zip
+*.py[cod]
+*.pyo
+# Env / tooling
+.venv/
+.env
+# Build / misc
+dist/
+build/
+.eggs/
+.DS_Store
