@@ -3,16 +3,12 @@
 Settings & Data – export/import JSON and refresh web data.
 """
 import json
-import streamlit as st
 
-from backend.data_store import (
-    load_events, save_events,
-    load_badges,  save_badges,
-)
-from backend.webscraper import (                   # note the trailing "ing"
-    refresh_harrow_holidays,
-    refresh_badge_catalogue,
-)
+import streamlit as st
+from backend.data_store import (load_badges, load_events, save_badges,
+                                save_events)
+from backend.webscraper import \
+    refresh_harrow_holidays  # note the trailing "ing"
 
 st.title("⚙️ Settings & Data")
 
