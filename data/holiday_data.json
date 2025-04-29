@@ -1,0 +1,19 @@
+{
+  "School year 2024-25": {
+    "Autumn\u00a0Term\u00a02024": [
+      "Term time: Monday 2\u00a0Sep -\u00a0Friday 25\u00a0Oct",
+      "Half term break: Monday 28\u00a0Oct -\u00a0Friday 1\u00a0Nov",
+      "Term time: Monday 4 Nov\u00a0- Friday 20\u00a0Dec"
+    ],
+    "Spring\u00a0Term\u00a02025": [
+      "Term time: Monday 6\u00a0Jan -\u00a0Friday 14\u00a0Feb",
+      "Half term break: Monday 17\u00a0Feb -\u00a0Friday 21\u00a0Feb",
+      "Term time: Monday 24\u00a0Feb - Friday 4\u00a0Apr"
+    ],
+    "Summer\u00a0Term\u00a02025": [
+      "Term time: Tuesday 22\u00a0Apr -\u00a0Friday 23\u00a0May",
+      "Half term break: Monday 26\u00a0May -\u00a0Friday 30\u00a0May",
+      "Term time: Monday 2\u00a0Jun - Tuesday 22\u00a0Jul"
+    ]
+  }
+}
